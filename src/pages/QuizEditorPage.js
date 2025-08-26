@@ -3,9 +3,9 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import QuestionEditor from '../components/QuestionEditor';
 import ComboBox from '../components/ui/ComboBox';
-import { ArrowLeftIcon, PlusIcon, CheckIcon } from '../assets/icons';
+import { ArrowLeftIcon, PlusIcon, CheckIcon, UploadIcon, LibraryIcon } from '../assets/icons';
 
-const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = [] }) => {
+const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = [], onImportRequest, onAddFromBankRequest }) => {
     const [localQuiz, setLocalQuiz] = useState(quiz);
     useEffect(() => { setLocalQuiz(quiz); }, [quiz]);
 
@@ -28,7 +28,8 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
             correctAnswer: true, 
             orderItems: ['', ''],
             imageUrl: '',
-            explanation: '' // Новое поле для объяснения
+            explanation: '',
+            points: 1
         };
         setLocalQuiz(prev => ({ ...prev, questions: [...prev.questions, newQuestion] }));
     };
@@ -42,12 +43,12 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
 
         const clonedQuestion = {
             ...questionToClone,
-            id: Date.now() + Math.random(), // Ensure a new unique ID
+            id: Date.now() + Math.random(),
         };
 
         const originalIndex = localQuiz.questions.findIndex(q => q.id === questionId);
         const newQuestions = [...localQuiz.questions];
-        newQuestions.splice(originalIndex + 1, 0, clonedQuestion); // Insert clone after original
+        newQuestions.splice(originalIndex + 1, 0, clonedQuestion);
 
         setLocalQuiz(prev => ({ ...prev, questions: newQuestions }));
     };
@@ -67,7 +68,6 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
 
     return (
         <div className="animate-fade-in space-y-6">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
                     <Button onClick={onBack} variant="secondary" className="mb-2 sm:mb-0">
@@ -84,11 +84,9 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                 </div>
             </div>
 
-            {/* Main Settings Card */}
             <Card>
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Əsas Məlumatlar</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                    {/* Left Column */}
                     <div className="space-y-4 col-span-1">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Testin adı</label>
@@ -99,14 +97,13 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                             <textarea name="description" value={localQuiz.description} onChange={handleQuizInfoChange} rows="5" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
                         </div>
                     </div>
-                    {/* Right Column */}
                     <div className="space-y-4 col-span-1">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Kateqoriya</label>
                             <ComboBox 
                                 options={existingCategories}
                                 value={localQuiz.category || ''}
-                                onChange={handleCategoryChange}
+                                onChange={(value) => setLocalQuiz(prev => ({ ...prev, category: value }))}
                                 placeholder="Kateqoriyanı seçin və ya yazın..."
                             />
                         </div>
@@ -125,11 +122,14 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                 </div>
             </Card>
 
-            {/* Questions Section */}
             <div>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-wrap gap-4 justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-gray-800">Suallar</h2>
-                    <Button onClick={addQuestion} variant="secondary"><PlusIcon />Sual əlavə et</Button>
+                    <div className="flex flex-wrap gap-2">
+                        <Button onClick={onAddFromBankRequest} variant="secondary"><LibraryIcon />Bankdan əlavə et</Button>
+                        <Button onClick={onImportRequest} variant="secondary"><UploadIcon />CSV-dən idxal et</Button>
+                        <Button onClick={addQuestion}><PlusIcon />Sual əlavə et</Button>
+                    </div>
                 </div>
                 <div className="space-y-4">
                     {localQuiz.questions.map((q, index) => <QuestionEditor key={q.id} question={q} index={index} onUpdate={updateQuestion} onDelete={() => deleteQuestion(q.id)} onDuplicate={() => handleDuplicateQuestion(q.id)} />)}

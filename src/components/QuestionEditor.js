@@ -116,15 +116,16 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) =>
     }, [localQuestion, onUpdate, question]);
 
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setLocalQuestion(prev => ({ ...prev, [name]: value }));
+        const { name, value, type } = e.target;
+        const processedValue = type === 'number' ? parseInt(value, 10) : value;
+        setLocalQuestion(prev => ({ ...prev, [name]: processedValue }));
     };
 
     return (
         <div className="border border-gray-200 rounded-lg shadow-sm mb-6 bg-white relative">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50 rounded-t-lg">
-                <div className="flex items-center gap-4">
-                    <span className="bg-orange-500 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-sm">{index + 1}</span>
+                <div className="flex items-center gap-4 flex-wrap">
+                    <span className="bg-orange-500 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-sm flex-shrink-0">{index + 1}</span>
                     <div>
                         <label className="block text-xs font-medium text-gray-500">Sualın növü</label>
                         <select name="type" value={localQuestion.type} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm text-xs p-1">
@@ -134,6 +135,10 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) =>
                             <option value="trueFalse">Doğru/Yanlış</option>
                             <option value="ordering">Sıralama</option>
                         </select>
+                    </div>
+                     <div>
+                        <label className="block text-xs font-medium text-gray-500">Ballar</label>
+                        <input type="number" name="points" value={localQuestion.points || 1} onChange={handleInputChange} min="1" className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm text-xs p-1" />
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
