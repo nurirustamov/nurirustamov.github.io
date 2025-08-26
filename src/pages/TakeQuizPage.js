@@ -8,6 +8,8 @@ import { SpeakerIcon, ArrowLeftIcon, ArrowRightIcon, CheckIcon, LightbulbIcon } 
 // --- Вспомогательная функция для проверки ответа ---
 const isAnswerCorrect = (question, userAnswer) => {
     if (userAnswer === undefined || userAnswer === null) return false;
+    // Открытые вопросы не проверяются автоматически
+    if (question.type === 'open') return false; 
     switch (question.type) {
         case 'single': return userAnswer === question.options[question.correctAnswers[0]];
         case 'multiple':
@@ -49,7 +51,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
 
     useEffect(() => {
         if (isPracticeMode || timeLeft <= 0) {
-            if (timeLeft <= 0) onSubmit(answers, quizQuestions);
+            if (timeLeft <= 0 && onSubmit) onSubmit(answers, quizQuestions);
             return;
         }
         const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
@@ -121,7 +123,6 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                     </div>
                     {q.imageUrl && <img src={q.imageUrl} alt="Question illustration" className="my-4 rounded-lg max-h-60 w-full object-contain mx-auto" onError={(e) => e.target.style.display = 'none'} />}
                     
-                    {/* --- ВОССТАНОВЛЕННЫЙ БЛОК ОТОБРАЖЕНИЯ ОТВЕТОВ --- */}
                     {q.type === 'single' && optionsForCurrentQuestion.map((option, optIndex) => (
                         <div key={optIndex} className="mb-2"><label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer border-2 ${getOptionClassName(option, optIndex)}`}><input type="radio" name={q.id} value={option} checked={answers[q.id] === option} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} />{option}</label></div>
                     ))}
@@ -136,6 +137,16 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                         </div>
                     )}
                     {q.type === 'ordering' && <OrderingQuestion question={q} onAnswer={(orderedItems) => handleAnswerChange(q.id, orderedItems)} disabled={isPracticeMode && isAnswerChecked} />}
+                    {q.type === 'open' && (
+                        <textarea
+                            value={answers[q.id] || ''}
+                            onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                            className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3"
+                            placeholder="Cavabınızı bura daxil edin..."
+                            rows="5"
+                            disabled={isPracticeMode && isAnswerChecked}
+                        />
+                    )}
                 </div>
 
                 {isPracticeMode && isAnswerChecked && q.explanation && (

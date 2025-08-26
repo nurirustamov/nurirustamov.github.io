@@ -19,14 +19,37 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack }) => (
                     const userAnswer = userAnswers[q.id];
                     let isCorrect = false;
                     let correctAnswerText = '';
+                    let userAnswerText = '';
 
-                    if (q.type === 'single') { isCorrect = userAnswer === q.options[q.correctAnswers[0]]; correctAnswerText = q.options[q.correctAnswers[0]]; }
-                    else if (q.type === 'multiple') { const correct = q.correctAnswers.map(i => q.options[i]).sort(); const user = userAnswer ? [...userAnswer].sort() : []; isCorrect = JSON.stringify(correct) === JSON.stringify(user); correctAnswerText = correct.join(', '); }
-                    else if (q.type === 'textInput') { isCorrect = userAnswer && q.correctAnswers[0].toLowerCase() === userAnswer.toLowerCase(); correctAnswerText = q.correctAnswers[0]; }
-                    else if (q.type === 'trueFalse') { isCorrect = userAnswer === q.correctAnswer; correctAnswerText = q.correctAnswer ? 'Doğru' : 'Yanlış'; }
-                    else if (q.type === 'ordering') { isCorrect = JSON.stringify(userAnswer) === JSON.stringify(q.orderItems); correctAnswerText = q.orderItems.map((item, i) => `${i + 1}. ${item}`).join('; '); }
-
-                    const userAnswerDisplay = Array.isArray(userAnswer) ? userAnswer.join(', ') : String(userAnswer ?? 'Cavab yoxdur');
+                    if (q.type === 'single') {
+                        isCorrect = userAnswer === q.options[q.correctAnswers[0]];
+                        correctAnswerText = q.options[q.correctAnswers[0]];
+                        userAnswerText = userAnswer || 'Cavab yoxdur';
+                    } else if (q.type === 'multiple') {
+                        const correct = q.correctAnswers.map(i => q.options[i]).sort();
+                        const user = userAnswer ? [...userAnswer].sort() : [];
+                        isCorrect = JSON.stringify(correct) === JSON.stringify(user);
+                        correctAnswerText = correct.join(', ');
+                        userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.join(', ') : 'Cavab yoxdur';
+                    } else if (q.type === 'textInput') {
+                        isCorrect = userAnswer && q.correctAnswers[0].toLowerCase() === userAnswer.toLowerCase();
+                        correctAnswerText = q.correctAnswers[0];
+                        userAnswerText = userAnswer || 'Cavab yoxdur';
+                    } else if (q.type === 'trueFalse') {
+                        isCorrect = userAnswer === q.correctAnswer;
+                        correctAnswerText = q.correctAnswer ? 'Doğru' : 'Yanlış';
+                        if (userAnswer === true) {
+                            userAnswerText = 'Doğru';
+                        } else if (userAnswer === false) {
+                            userAnswerText = 'Yanlış';
+                        } else {
+                            userAnswerText = 'Cavab yoxdur';
+                        }
+                    } else if (q.type === 'ordering') {
+                        isCorrect = JSON.stringify(userAnswer) === JSON.stringify(q.orderItems);
+                        correctAnswerText = q.orderItems.map((item, i) => `${i + 1}. ${item}`).join('; ');
+                        userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.map((item, i) => `${i + 1}. ${item}`).join('; ') : 'Cavab yoxdur';
+                    }
 
                     return (
                         <div key={q.id} className={`p-3 sm:p-4 rounded-lg ${isCorrect ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
@@ -54,7 +77,7 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack }) => (
                                 <p>
                                     <strong>Sizin cavabınız:</strong>{' '}
                                     <span className={isCorrect ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
-                                        {userAnswerDisplay}
+                                        {userAnswerText}
                                     </span>
                                 </p>
                                 {!isCorrect && (

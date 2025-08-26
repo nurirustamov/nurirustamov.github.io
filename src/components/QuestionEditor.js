@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Button from './ui/Button';
-import { TrashIcon, PlusIcon, DuplicateIcon } from '../assets/icons';
+import { TrashIcon, PlusIcon, DuplicateIcon, LightbulbIcon } from '../assets/icons';
 
 const AnswerEditor = ({ question, onUpdate }) => {
     const handleOptionChange = (index, value) => {
@@ -95,6 +95,13 @@ const AnswerEditor = ({ question, onUpdate }) => {
                     <Button onClick={addOrderItem} variant="secondary" className="mt-3 text-sm"><PlusIcon /> Element əlavə et</Button>
                 </div>
             );
+        case 'open': // Новый тип вопроса
+            return (
+                <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm flex items-center gap-2">
+                    <LightbulbIcon className="w-5 h-5" />
+                    <span>Bu sualın cavabı müəllim tərəfindən manual olaraq yoxlanılacaq.</span>
+                </div>
+            );
         default: return null;
     }
 };
@@ -134,6 +141,7 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) =>
                             <option value="textInput">Mətn daxil etmə</option>
                             <option value="trueFalse">Doğru/Yanlış</option>
                             <option value="ordering">Sıralama</option>
+                            <option value="open">Açıq Sual</option> {/* Новая опция */}
                         </select>
                     </div>
                      <div>

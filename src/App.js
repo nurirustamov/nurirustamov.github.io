@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Routes, Route, useNavigate, useParams, Link } from 'react-router-dom';
+import { Routes, Route, useNavigate, useParams, Link, useLocation, createSearchParams } from 'react-router-dom';
 import Papa from 'papaparse';
 
 // --- Хуки и утилиты ---
@@ -21,6 +21,8 @@ import QuizReviewPage from './pages/QuizReviewPage';
 import StatisticsPage from './pages/StatisticsPage';
 import StudentReportPage from './pages/StudentReportPage';
 import QuestionBankPage from './pages/QuestionBankPage';
+import PastQuizReviewPage from './pages/PastQuizReviewPage';
+import ManualReviewPage from './pages/ManualReviewPage';
 
 const ADMIN_PASSWORD = 'sn200924';
 
@@ -40,8 +42,8 @@ const UserInfoModal = ({ isOpen, onClose, onConfirm, showToast }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Məlumatlarınızı daxil edin">
             <div className="space-y-4">
-                <div><label className="block text-sm font-medium text-gray-700">Ad</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" placeholder="Ad" /></div>
-                <div><label className="block text-sm font-medium text-gray-700">Soyad</label><input type="text" value={surname} onChange={(e) => setSurname(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" placeholder="Soyad" /></div>
+                <div><label className="block text-sm font-medium text-gray-700">Ad</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" placeholder="İvan" /></div>
+                <div><label className="block text-sm font-medium text-gray-700">Soyad</label><input type="text" value={surname} onChange={(e) => setSurname(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" placeholder="İvanov" /></div>
             </div>
             <div className="mt-6 flex justify-end"><Button onClick={handleConfirm}>Testə başla</Button></div>
         </Modal>
@@ -156,7 +158,7 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
 export default function App() {
     const [quizzes, setQuizzes] = useLocalStorage('eduventure-quizzes-v6-az', []);
     const [user, setUser] = useLocalStorage('eduventure-user-az', { name: '', surname: '' });
-    const [quizResults, setQuizResults] = useLocalStorage('eduventure-results-v4-az', []);
+    const [quizResults, setQuizResults] = useLocalStorage('eduventure-results-v5-az', []);
     const [questionBank, setQuestionBank] = useLocalStorage('eduventure-question-bank-v1', []);
     
     const [lastResult, setLastResult] = useState(null);
@@ -186,7 +188,7 @@ export default function App() {
     };
 
     const requestProtectedAction = (action) => {
-        setProtectedAction(action);
+        setProtectedAction(() => action);
         setIsPasswordModalOpen(true);
     };
 
@@ -195,7 +197,7 @@ export default function App() {
         const { type, payload } = protectedAction;
         switch (type) {
             case 'add':
-                const newQuiz = { id: Date.now(), title: 'Yeni Test', description: '', category: 'Kateqoriyasız', timeLimit: 10, questions: [], shuffleQuestions: false, shuffleOptions: false };
+                const newQuiz = { id: Date.now(), title: 'Yeni Test', description: '', category: 'Kateqoriyasız', timeLimit: 10, questions: [], shuffleQuestions: false, shuffleOptions: false, isArchived: false };
                 setQuizzes(prev => [...prev, newQuiz]);
                 navigate(`/quiz/${newQuiz.id}/edit`);
                 break;
@@ -209,7 +211,10 @@ export default function App() {
                     navigate(`/quiz/${clonedQuiz.id}/edit`);
                 }
                 break;
-            case 'navigate_bank': navigate('/question-bank'); break;
+            case 'archive':
+                handleArchiveQuiz(payload.quizId, payload.isArchived);
+                break;
+            case 'question_bank': navigate('/question-bank'); break;
             default: break;
         }
         setProtectedAction(null);
@@ -219,7 +224,8 @@ export default function App() {
     const handleEditQuizRequest = (quizId) => requestProtectedAction({ type: 'edit', payload: quizId });
     const handleDeleteQuizRequest = (quizId) => requestProtectedAction({ type: 'delete', payload: quizId });
     const handleCloneQuizRequest = (quizId) => requestProtectedAction({ type: 'clone', payload: quizId });
-    const handleNavigateToBankRequest = () => requestProtectedAction({ type: 'navigate_bank' });
+    const handleArchiveQuizRequest = (quizId, isArchived) => requestProtectedAction({ type: 'archive', payload: { quizId, isArchived } });
+    const handleQuestionBankRequest = () => requestProtectedAction({ type: 'question_bank' });
 
     const handleSaveQuiz = (updatedQuiz) => {
         setQuizzes(quizzes.map(q => q.id === updatedQuiz.id ? updatedQuiz : q));
@@ -257,6 +263,7 @@ export default function App() {
         let score = 0;
         let totalPoints = 0;
         let correctAnswersCount = 0;
+        const hasOpenQuestions = questionsInOrder.some(q => q.type === 'open');
 
         questionsInOrder.forEach(q => {
             const userAnswer = answers[q.id];
@@ -266,11 +273,13 @@ export default function App() {
             if (userAnswer === undefined) return;
 
             let isCorrect = false;
-            if (q.type === 'single') isCorrect = userAnswer === q.options[q.correctAnswers[0]];
-            else if (q.type === 'multiple') { const correct = q.correctAnswers.map(i => q.options[i]).sort(); const user = userAnswer ? [...userAnswer].sort() : []; isCorrect = JSON.stringify(correct) === JSON.stringify(user); }
-            else if (q.type === 'textInput') isCorrect = userAnswer.trim().toLowerCase() === q.correctAnswers[0].trim().toLowerCase();
-            else if (q.type === 'trueFalse') isCorrect = userAnswer === q.correctAnswer;
-            else if (q.type === 'ordering') isCorrect = JSON.stringify(userAnswer) === JSON.stringify(q.orderItems);
+            if (q.type !== 'open') {
+                if (q.type === 'single') isCorrect = userAnswer === q.options[q.correctAnswers[0]];
+                else if (q.type === 'multiple') { const correct = q.correctAnswers.map(i => q.options[i]).sort(); const user = userAnswer ? [...userAnswer].sort() : []; isCorrect = JSON.stringify(correct) === JSON.stringify(user); }
+                else if (q.type === 'textInput') isCorrect = userAnswer.trim().toLowerCase() === q.correctAnswers[0].trim().toLowerCase();
+                else if (q.type === 'trueFalse') isCorrect = userAnswer === q.correctAnswer;
+                else if (q.type === 'ordering') isCorrect = JSON.stringify(userAnswer) === JSON.stringify(q.orderItems);
+            }
             
             if (isCorrect) {
                 score += questionPoints;
@@ -289,6 +298,7 @@ export default function App() {
             correctAnswersCount,
             totalQuestions: quiz.questions.length,
             percentage: totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0, 
+            status: hasOpenQuestions ? 'pending_review' : 'completed',
             date: new Date().toISOString(), 
             userAnswers: answers, 
             questionOrder: questionsInOrder 
@@ -366,11 +376,68 @@ export default function App() {
         showToast(`${questionsToAdd.length} sual bankdan əlavə edildi.`);
     };
 
-    const QuizListPageWrapper = () => <QuizListPage quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={handleDeleteQuizRequest} onCloneQuiz={handleCloneQuizRequest} />;
-    const StatisticsPageWrapper = () => <StatisticsPage results={quizResults} onBack={() => navigate('/')} quizzes={quizzes} />;
-    const StudentReportPageWrapper = () => <StudentReportPage results={quizResults} />;
+    const handleUpdateResult = (updatedResult) => {
+        setQuizResults(prevResults => prevResults.map(r => r.id === updatedResult.id ? updatedResult : r));
+        navigate('/stats');
+        showToast('Nəticə uğurla yeniləndi!');
+    };
+
+    const handleReviewRequest = (result) => {
+        if (result.status === 'pending_review') {
+            navigate(`/manual-review/${result.id}`);
+        } else {
+            navigate(`/review/${result.id}`);
+        }
+    };
+
+    const handleArchiveQuiz = (quizId, isArchived) => {
+        setQuizzes(prevQuizzes =>
+            prevQuizzes.map(quiz =>
+                quiz.id === quizId ? { ...quiz, isArchived } : quiz
+            )
+        );
+        showToast(isArchived ? 'Test arxivlendi' : 'Test arxivdən çıxarıldı');
+    };
+
+    const QuizListPageWrapper = () => {
+        const location = useLocation();
+        const navigate = useNavigate();
+        const queryParams = new URLSearchParams(location.search);
+        const showArchived = queryParams.get('showArchived') === 'true';
+
+        const handleSetShowArchived = (value) => {
+            navigate({ search: createSearchParams({ showArchived: value }).toString() });
+        };
+
+        return <QuizListPage 
+            quizzes={quizzes} 
+            onStartQuiz={handleStartQuizRequest} 
+            onAddNewQuiz={handleAddNewQuizRequest} 
+            onEditQuiz={handleEditQuizRequest} 
+            onDeleteRequest={handleDeleteQuizRequest} 
+            onCloneQuiz={handleCloneQuizRequest} 
+            onArchiveRequest={handleArchiveQuizRequest}
+            showArchived={showArchived}
+            setShowArchived={handleSetShowArchived}
+        />;
+    }
+    const StatisticsPageWrapper = () => <StatisticsPage results={quizResults} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={handleReviewRequest} />;
+    const StudentReportPageWrapper = () => <StudentReportPage results={quizResults} onReviewResult={handleReviewRequest} />;
     const QuestionBankPageWrapper = () => <QuestionBankPage questionBank={questionBank} setQuestionBank={setQuestionBank} />;
     
+    const PastQuizReviewPageWrapper = () => {
+        const { resultId } = useParams();
+        const result = quizResults.find(r => r.id === Number(resultId));
+        if (!result) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
+        const quiz = quizzes.find(q => q.id === result.quizId);
+        if (!quiz) return <div className="text-center text-red-500">Test tapılmadı!</div>;
+        return <PastQuizReviewPage result={result} quiz={quiz} />;
+    };
+
+    const ManualReviewPageWrapper = () => {
+        return <ManualReviewPage results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} />;
+    };
+
     const QuizPageWrapper = ({ pageType }) => {
         const { id } = useParams();
         const quiz = quizzes.find(q => q.id === Number(id));
@@ -381,7 +448,7 @@ export default function App() {
             case 'take': return <TakeQuizPage quiz={quiz} user={user} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
             case 'practice': return <TakeQuizPage quiz={quiz} user={{ name: 'Tələbə', surname: '' }} mode="practice" />;
             case 'result': return <QuizResultPage lastResult={lastResult} allResultsForThisQuiz={quizResults.filter(r => r.quizId === quiz.id)} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
-            case 'review': return <QuizReviewPage quiz={quiz} userAnswers={lastResult.userAnswers} questionOrder={lastResult.questionOrder} onBack={() => navigate(`/quiz/${id}/result`)} />;
+            case 'review': return <QuizReviewPage quiz={quiz} userAnswers={lastResult.userAnswers} questionOrder={lastResult.questionOrder} onBack={() => navigate(-1)} />;
             default: return navigate('/');
         }
     };
@@ -393,7 +460,7 @@ export default function App() {
                     <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
                         <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
                         <div className="flex items-center gap-2">
-                            <Button onClick={handleNavigateToBankRequest} variant="secondary"><LibraryIcon /><span className="hidden sm:inline ml-2">Suallar Bankı</span></Button>
+                            <Button onClick={handleQuestionBankRequest} variant="secondary"><LibraryIcon /><span className="hidden sm:inline ml-2">Suallar Bankı</span></Button>
                             <Link to="/stats"><Button as="span" variant="secondary"><ChartBarIcon /><span className="hidden sm:inline ml-2">Statistika</span></Button></Link>
                         </div>
                     </div>
@@ -404,6 +471,8 @@ export default function App() {
                         <Route path="/stats" element={<StatisticsPageWrapper />} />
                         <Route path="/student/:studentSlug" element={<StudentReportPageWrapper />} />
                         <Route path="/question-bank" element={<QuestionBankPageWrapper />} />
+                        <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper />} />
+                        <Route path="/manual-review/:resultId" element={<ManualReviewPageWrapper />} />
                         <Route path="/quiz/:id/edit" element={<QuizPageWrapper pageType="edit" />} />
                         <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" />} />
                         <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" />} />
