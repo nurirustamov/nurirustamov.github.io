@@ -6,18 +6,24 @@ import ComboBox from '../components/ui/ComboBox';
 import { ArrowLeftIcon, PlusIcon, CheckIcon, UploadIcon, LibraryIcon } from '../assets/icons';
 
 const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = [], onImportRequest, onAddFromBankRequest }) => {
-    const [localQuiz, setLocalQuiz] = useState(quiz);
-    useEffect(() => { setLocalQuiz(quiz); }, [quiz]);
+    const [localQuiz, setLocalQuiz] = useState({ ...quiz, questions: quiz?.questions || [] });
+
+    useEffect(() => {
+        setLocalQuiz({ ...quiz, questions: quiz?.questions || [] });
+    }, [quiz]);
 
     const handleQuizInfoChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setLocalQuiz(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        let finalValue = type === 'checkbox' ? checked : value;
+        if (type === 'datetime-local') {
+            finalValue = value ? new Date(value).toISOString() : null;
+        }
+        if (name === 'attempt_limit' && value === '0') {
+            finalValue = null;
+        }
+        setLocalQuiz(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    const handleCategoryChange = (categoryValue) => {
-        setLocalQuiz(prev => ({ ...prev, category: categoryValue }));
-    };
-    
     const addQuestion = () => {
         const newQuestion = { 
             id: Date.now(), 
@@ -41,46 +47,44 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
         const questionToClone = localQuiz.questions.find(q => q.id === questionId);
         if (!questionToClone) return;
 
-        const clonedQuestion = {
-            ...questionToClone,
-            id: Date.now() + Math.random(),
-        };
-
+        const clonedQuestion = { ...questionToClone, id: Date.now() + Math.random() };
         const originalIndex = localQuiz.questions.findIndex(q => q.id === questionId);
         const newQuestions = [...localQuiz.questions];
         newQuestions.splice(originalIndex + 1, 0, clonedQuestion);
-
         setLocalQuiz(prev => ({ ...prev, questions: newQuestions }));
     };
 
     const handleSave = () => {
-        if (!localQuiz.title.trim()) {
+        if (!localQuiz.title || !localQuiz.title.trim()) {
             showToast("Testin adı boş ola bilməz!");
             return;
         }
-        if (!localQuiz.category.trim()) {
+        if (!localQuiz.category || !localQuiz.category.trim()) {
             showToast("Kateqoriya boş ola bilməz!");
             return;
         }
         onSave(localQuiz);
-        showToast("Test uğurla yadda saxlanıldı!");
     };
+
+    const formatDateTimeForInput = (isoString) => {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    };
+
+    if (!localQuiz) {
+        return <div>Yüklənir...</div>;
+    }
 
     return (
         <div className="animate-fade-in space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                    <Button onClick={onBack} variant="secondary" className="mb-2 sm:mb-0">
-                        <ArrowLeftIcon />
-                        <span className="hidden sm:inline">Siyahıya qayıt</span>
-                    </Button>
+                    <Button onClick={onBack} variant="secondary" className="mb-2 sm:mb-0"><ArrowLeftIcon /><span className="hidden sm:inline">Siyahıya qayıt</span></Button>
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">Test Redaktoru</h1>
                 </div>
                 <div className="w-full sm:w-auto">
-                    <Button onClick={handleSave} className="w-full">
-                        <CheckIcon />
-                        Testi yadda saxla
-                    </Button>
+                    <Button onClick={handleSave} className="w-full"><CheckIcon />Testi yadda saxla</Button>
                 </div>
             </div>
 
@@ -90,34 +94,51 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                     <div className="space-y-4 col-span-1">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Testin adı</label>
-                            <input type="text" name="title" value={localQuiz.title} onChange={handleQuizInfoChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
+                            <input type="text" name="title" value={localQuiz.title || ''} onChange={handleQuizInfoChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Təsvir</label>
-                            <textarea name="description" value={localQuiz.description} onChange={handleQuizInfoChange} rows="5" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
+                            <textarea name="description" value={localQuiz.description || ''} onChange={handleQuizInfoChange} rows="5" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
                         </div>
                     </div>
                     <div className="space-y-4 col-span-1">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Kateqoriya</label>
-                            <ComboBox 
-                                options={existingCategories}
-                                value={localQuiz.category || ''}
-                                onChange={(value) => setLocalQuiz(prev => ({ ...prev, category: value }))}
-                                placeholder="Kateqoriyanı seçin və ya yazın..."
-                            />
+                            <ComboBox options={existingCategories} value={localQuiz.category || ''} onChange={(value) => setLocalQuiz(prev => ({ ...prev, category: value }))} placeholder="Kateqoriyanı seçin və ya yazın..." />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Test üçün vaxt (dəqiqə)</label>
-                            <input type="number" name="timeLimit" value={localQuiz.timeLimit || 10} onChange={handleQuizInfoChange} min="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
+                            <input type="number" name="timeLimit" value={localQuiz.timeLimit || 10} onChange={handleQuizInfoChange} min="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
                         </div>
                          <div>
                             <h4 className="text-sm font-medium text-gray-700 mb-3">Parametrlər</h4>
                             <div className="space-y-3 pt-2 border-t">
-                                <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleQuestions" checked={!!localQuiz.shuffleQuestions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500" /> <span className="ml-2 text-sm text-gray-700">Sualları qarışdır</span></label>
-                                <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleOptions" checked={!!localQuiz.shuffleOptions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500" /> <span className="ml-2 text-sm text-gray-700">Variantları qarışdır</span></label>
+                                <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleQuestions" checked={!!localQuiz.shuffleQuestions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Sualları qarışdır</span></label>
+                                <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleOptions" checked={!!localQuiz.shuffleOptions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Variantları qarışdır</span></label>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </Card>
+
+            <Card>
+                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Giriş Parametrləri</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Testin başlama vaxtı</label>
+                        <input type="datetime-local" name="start_time" value={formatDateTimeForInput(localQuiz.start_time)} onChange={handleQuizInfoChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Testin bitmə vaxtı</label>
+                        <input type="datetime-local" name="end_time" value={formatDateTimeForInput(localQuiz.end_time)} onChange={handleQuizInfoChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Cəhd limiti (0 = limitsiz)</label>
+                        <input type="number" name="attempt_limit" value={localQuiz.attempt_limit || 0} onChange={handleQuizInfoChange} min="0" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+                    </div>
+                    <div className="lg:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Kodu (Könüllü)</label>
+                        <input type="text" name="passcode" value={localQuiz.passcode || ''} onChange={handleQuizInfoChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Testə başlamaq üçün kod təyin et" />
                     </div>
                 </div>
             </Card>

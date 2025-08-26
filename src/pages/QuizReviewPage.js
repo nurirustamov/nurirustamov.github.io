@@ -1,9 +1,88 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon, ChatBubbleLeftRightIcon, PaperAirplaneIcon } from '../assets/icons';
+import { supabase } from '../supabaseClient';
 
-const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack }) => (
+const CommentsSection = ({ questionId, profile }) => {
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const fetchComments = async () => {
+        const { data, error } = await supabase
+            .from('comments')
+            .select(`
+                *,
+                profiles ( id, first_name, last_name )
+            `)
+            .eq('question_id', questionId)
+            .order('created_at', { ascending: true });
+        
+        if (!error) {
+            setComments(data);
+        }
+    };
+
+    useEffect(() => {
+        if (questionId) {
+            fetchComments();
+        }
+    }, [questionId]);
+
+    const handleAddComment = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim()) return;
+
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('comments')
+            .insert({ 
+                content: newComment, 
+                question_id: questionId,
+                user_id: profile.id
+            })
+            .select(`
+                *,
+                profiles ( id, first_name, last_name )
+            `)
+            .single();
+
+        if (error) {
+            console.error('Error adding comment:', error);
+        } else {
+            setComments(prev => [...prev, data]);
+            setNewComment('');
+        }
+        setLoading(false);
+    };
+
+    return (
+        <div className="mt-4 pt-4 pl-8 border-t border-gray-300/70">
+            <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2"><ChatBubbleLeftRightIcon /> Müzakirə</h4>
+            <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                {comments.length > 0 ? comments.map(comment => (
+                    <div key={comment.id} className="text-sm">
+                        <span className="font-bold text-gray-700">{comment.profiles.first_name || 'Anonim'} {comment.profiles.last_name}: </span>
+                        <span>{comment.content}</span>
+                    </div>
+                )) : <p className="text-sm text-gray-500">Hələ heç bir şərh yoxdur.</p>}
+            </div>
+            <form onSubmit={handleAddComment} className="mt-3 flex gap-2">
+                <input 
+                    type="text" 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Şərhinizi yazın..."
+                    className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
+                />
+                <Button type="submit" size="sm" disabled={loading}><PaperAirplaneIcon /></Button>
+            </form>
+        </div>
+    );
+};
+
+const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile }) => (
     <div className="animate-fade-in">
         <Button onClick={onBack} variant="secondary" className="mb-6">
             <ArrowLeftIcon />
@@ -101,6 +180,7 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack }) => (
                                     </div>
                                 </div>
                             )}
+                            <CommentsSection questionId={q.id.toString()} profile={profile} />
                         </div>
                     );
                 })}

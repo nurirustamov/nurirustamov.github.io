@@ -24,7 +24,8 @@ const ManualReviewPage = ({ results, quizzes, onUpdateResult }) => {
             const initialGrades = {};
             currentResult.questionOrder.forEach(q => {
                 if (q.type === 'open') {
-                    initialGrades[q.id] = currentResult.userAnswers[q.id]?.score || 0;
+                    const userAnswer = currentResult.userAnswers[q.id];
+                    initialGrades[q.id] = userAnswer?.score || 0;
                 }
             });
             setGradedAnswers(initialGrades);
@@ -56,15 +57,19 @@ const ManualReviewPage = ({ results, quizzes, onUpdateResult }) => {
 
         Object.entries(gradedAnswers).forEach(([questionId, score]) => {
             const question = quiz.questions.find(q => q.id === Number(questionId));
-            if (!question) return;
+            if (!question || question.type !== 'open') return;
 
-            const oldScore = result.userAnswers[questionId]?.score || 0;
+            const originalAnswerObject = result.userAnswers[questionId];
+            const oldScore = originalAnswerObject?.score || 0;
+            // Correctly get the answer text, whether it's a string or already an object.
+            const answerText = typeof originalAnswerObject === 'object' ? originalAnswerObject.answer : originalAnswerObject;
+            
             finalScore = finalScore - oldScore + score;
 
+            // Always save as an object to preserve both answer and score.
             newAnswers[questionId] = {
-                ...newAnswers[questionId],
-                answer: newAnswers[questionId]?.answer || result.userAnswers[questionId], // Preserve original answer text
-                score
+                answer: answerText,
+                score: score
             };
         });
 
@@ -116,27 +121,32 @@ const ManualReviewPage = ({ results, quizzes, onUpdateResult }) => {
             {openQuestions.length === 0 ? (
                 <Card><p>Bu testdə yoxlanılacaq açıq sual yoxdur.</p></Card>
             ) : (
-                openQuestions.map(question => (
-                    <Card key={question.id}>
-                        <h3 className="font-semibold text-lg text-gray-800 mb-2">{question.text}</h3>
-                        <p className="text-sm text-gray-500 mb-4">Maksimum bal: {question.points || 1}</p>
-                        <div className="p-4 bg-gray-100 rounded-md">
-                            <p className="font-semibold">Tələbənin cavabı:</p>
-                            <p className="whitespace-pre-wrap">{result.userAnswers[question.id]}</p>
-                        </div>
-                        <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-700">Qiymət (bal)</label>
-                            <input
-                                type="number"
-                                value={gradedAnswers[question.id] || ''}
-                                onChange={(e) => handleGradeChange(question.id, e.target.value)}
-                                max={question.points || 1}
-                                min="0"
-                                className="mt-1 w-24 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                            />
-                        </div>
-                    </Card>
-                ))
+                openQuestions.map(question => {
+                    const userAnswer = result.userAnswers[question.id];
+                    // Correctly display the answer text, whether it's a string or an object.
+                    const answerText = userAnswer?.answer || userAnswer;
+                    return (
+                        <Card key={question.id}>
+                            <h3 className="font-semibold text-lg text-gray-800 mb-2">{question.text}</h3>
+                            <p className="text-sm text-gray-500 mb-4">Maksimum bal: {question.points || 1}</p>
+                            <div className="p-4 bg-gray-100 rounded-md">
+                                <p className="font-semibold">Tələbənin cavabı:</p>
+                                <p className="whitespace-pre-wrap">{answerText}</p>
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium text-gray-700">Qiymət (bal)</label>
+                                <input
+                                    type="number"
+                                    value={gradedAnswers[question.id] || ''}
+                                    onChange={(e) => handleGradeChange(question.id, e.target.value)}
+                                    max={question.points || 1}
+                                    min="0"
+                                    className="mt-1 w-24 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                />
+                            </div>
+                        </Card>
+                    )
+                })
             )}
 
             <div className="flex justify-end">

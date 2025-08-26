@@ -5,14 +5,14 @@ import Modal from '../components/ui/Modal';
 import QuestionEditor from '../components/QuestionEditor';
 import { PlusIcon, EditIcon, TrashIcon, SearchIcon } from '../assets/icons';
 
-const QuestionBankPage = ({ questionBank, setQuestionBank }) => {
+const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
     const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
     const [questionToEdit, setQuestionToEdit] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleAddNewQuestion = () => {
         const newQuestion = {
-            id: Date.now(),
+            // ID будет присвоен базой данных, его отсутствие - признак нового вопроса
             text: '',
             type: 'single',
             options: ['', ''],
@@ -32,19 +32,20 @@ const QuestionBankPage = ({ questionBank, setQuestionBank }) => {
         setIsEditorModalOpen(true);
     };
 
-    const handleDeleteQuestion = (questionId) => {
-        setQuestionBank(prevBank => prevBank.filter(q => q.id !== questionId));
-    };
-
     const handleSaveQuestion = (question) => {
-        const isExisting = questionBank.some(q => q.id === question.id);
-        if (isExisting) {
-            setQuestionBank(prevBank => prevBank.map(q => q.id === question.id ? question : q));
-        } else {
-            setQuestionBank(prevBank => [...prevBank, question]);
+        if (!question.text.trim()) {
+            showToast("Sualın mətni boş ola bilməz!");
+            return;
         }
+        onSave(question); // Вызываем функцию из App.js, которая работает с Supabase
         setIsEditorModalOpen(false);
         setQuestionToEdit(null);
+    };
+
+    const handleDeleteWithConfirmation = (questionId) => {
+        if (window.confirm("Bu sualı bankdan silmək istədiyinizə əminsiniz?")) {
+            onDelete(questionId); // Вызываем функцию из App.js
+        }
     };
 
     const filteredQuestions = useMemo(() => {
@@ -75,7 +76,7 @@ const QuestionBankPage = ({ questionBank, setQuestionBank }) => {
 
             <div className="space-y-4">
                 {filteredQuestions.length > 0 ? (
-                    filteredQuestions.map((question, index) => (
+                    filteredQuestions.map((question) => (
                         <Card key={question.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                             <div className="flex-1">
                                 <p className="font-semibold text-gray-800">{question.text}</p>
@@ -83,7 +84,7 @@ const QuestionBankPage = ({ questionBank, setQuestionBank }) => {
                             </div>
                             <div className="flex gap-2 self-end sm:self-center">
                                 <Button onClick={() => handleEditQuestion(question)} variant="secondary"><EditIcon /></Button>
-                                <Button onClick={() => handleDeleteQuestion(question.id)} variant="danger"><TrashIcon /></Button>
+                                <Button onClick={() => handleDeleteWithConfirmation(question.id)} variant="danger"><TrashIcon /></Button>
                             </div>
                         </Card>
                     ))
@@ -95,13 +96,12 @@ const QuestionBankPage = ({ questionBank, setQuestionBank }) => {
             </div>
 
             {isEditorModalOpen && (
-                <Modal isOpen={isEditorModalOpen} onClose={() => setIsEditorModalOpen(false)} title={questionToEdit?.text ? "Sualı Redaktə Et" : "Yeni Sual Yarat"}>
+                <Modal isOpen={isEditorModalOpen} onClose={() => setIsEditorModalOpen(false)} title={questionToEdit?.id ? "Sualı Redaktə Et" : "Yeni Sual Yarat"}>
                     <QuestionEditor 
                         question={questionToEdit}
-                        index={0} // Индекс здесь не так важен, так как это банк
-                        onUpdate={setQuestionToEdit} // Обновляем временное состояние в модальном окне
-                        onDelete={() => {}} // Удаление обрабатывается на основной странице
-                        onDuplicate={() => {}} // Дублирование здесь не нужно
+                        index={0} 
+                        onUpdate={setQuestionToEdit} 
+                        isBankEditor={true}
                     />
                     <div className="flex justify-end mt-6">
                         <Button onClick={() => handleSaveQuestion(questionToEdit)}>Yadda Saxla</Button>

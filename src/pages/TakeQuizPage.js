@@ -113,7 +113,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                     {!isPracticeMode && <div className="text-2xl font-bold text-orange-500 bg-orange-100 px-4 py-2 rounded-lg w-full sm:w-auto text-center">{formatTime(timeLeft)}</div>}
                     {isPracticeMode && <div className="text-lg font-bold text-blue-500 bg-blue-100 px-4 py-2 rounded-lg w-full sm:w-auto text-center">Məşq Rejimi</div>}
                 </div>
-                {!isPracticeMode && user && <p className="text-center sm:text-left text-gray-600 mb-4">Uğurlar, {user.name}!</p>}
+                {!isPracticeMode && user && <p className="text-center sm:text-left text-gray-600 mb-4">Uğurlar, {user.first_name}!</p>}
                 <div className="w-full bg-gray-200 rounded-full h-2.5 mb-6"><div className="bg-gradient-to-r from-orange-400 to-red-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div></div>
                 
                 <div key={q.id} className="bg-orange-50 p-4 sm:p-6 rounded-lg">

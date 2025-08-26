@@ -1,10 +1,84 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon, TrashIcon } from '../assets/icons';
 
-const PastQuizReviewPage = ({ result, quiz }) => {
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date)) return 'Invalid Date';
+    return date.toLocaleString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+const CommentsSection = ({ questionId, profile, fetchComments, postComment, deleteComment }) => {
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadComments = async () => {
+            setLoading(true);
+            const fetchedComments = await fetchComments(questionId);
+            setComments(fetchedComments);
+            setLoading(false);
+        };
+        loadComments();
+    }, [questionId, fetchComments]);
+
+    const handlePostComment = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim()) return;
+
+        const postedComment = await postComment(questionId, newComment);
+        if (postedComment) {
+            setComments(prev => [...prev, postedComment]);
+            setNewComment('');
+        }
+    };
+
+    const handleDeleteComment = async (commentId) => {
+        if (window.confirm('Şərhi silmək istədiyinizə əminsiniz?')) {
+            const success = await deleteComment(commentId);
+            if (success) {
+                setComments(prev => prev.filter(c => c.id !== commentId));
+            }
+        }
+    };
+
+    return (
+        <div className="mt-4 pt-4 pl-8 border-t border-gray-300/70">
+            <h4 className="font-semibold text-gray-700 mb-2">Müzakirə</h4>
+            <div className="space-y-3">
+                {loading ? <p>Yüklənir...</p> : comments.map(comment => (
+                    <div key={comment.id} className="text-sm">
+                        <div className="flex justify-between items-center">
+                            <p className="font-bold">{comment.profiles?.first_name || 'İstifadəçi'} {comment.profiles?.last_name}</p>
+                            {(profile?.id === comment.user_id || profile?.role === 'admin') && (
+                                <button onClick={() => handleDeleteComment(comment.id)} className="text-red-500 hover:text-red-700"><TrashIcon /></button>
+                            )}
+                        </div>
+                        <p className="text-gray-600 bg-gray-100 p-2 rounded-md">{comment.content}</p>
+                        <p className="text-xs text-gray-400 mt-1">{formatDate(comment.created_at)}</p>
+                    </div>
+                ))}
+                {comments.length === 0 && !loading && <p className="text-sm text-gray-500">Hələ heç bir şərh yoxdur.</p>}
+            </div>
+            <form onSubmit={handlePostComment} className="mt-4 flex gap-2">
+                <input 
+                    type="text" 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Şərhinizi yazın..."
+                    className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
+                />
+                <Button type="submit">Göndər</Button>
+            </form>
+        </div>
+    );
+};
+
+const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment, deleteComment }) => {
 
     if (!result || !quiz) {
         return (
@@ -33,7 +107,7 @@ const PastQuizReviewPage = ({ result, quiz }) => {
                 <div className="flex justify-between items-center mb-4 pb-4 border-b">
                     <div>
                         <p><strong>Tələbə:</strong> {studentName}</p>
-                        <p><strong>Tarix:</strong> {new Date(result.date).toLocaleString('az-AZ')}</p>
+                        <p><strong>Tarix:</strong> {formatDate(result.created_at)}</p>
                     </div>
                     <div className="text-right">
                         <p><strong>Nəticə:</strong> {result.percentage}%</p>
@@ -43,7 +117,7 @@ const PastQuizReviewPage = ({ result, quiz }) => {
 
                 <div className="space-y-6">
                     {result.questionOrder.map((q, index) => {
-                        const originalQuestion = quiz.questions.find(origQ => origQ.id === q.id);
+                        const originalQuestion = (quiz.questions || []).find(origQ => origQ.id === q.id);
                         if (!originalQuestion) return (
                             <div key={q.id} className="p-3 sm:p-4 rounded-lg bg-gray-100 border-l-4 border-gray-400">
                                 <p className="text-gray-600">Bu sual testdən silinib.</p>
@@ -86,6 +160,13 @@ const PastQuizReviewPage = ({ result, quiz }) => {
                                         </div>
                                     </div>
                                 )}
+                                <CommentsSection 
+                                    questionId={originalQuestion.id.toString()} 
+                                    profile={profile} 
+                                    fetchComments={fetchComments} 
+                                    postComment={postComment} 
+                                    deleteComment={deleteComment} 
+                                />
                             </div>
                         );
                     })}

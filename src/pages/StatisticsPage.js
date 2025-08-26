@@ -3,13 +3,20 @@ import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { ArrowLeftIcon, DownloadIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon, ClockIcon, CheckCircleIcon as CheckIcon, EyeIcon, ClipboardCheckIcon, ChartPieIcon, ArrowUpIcon, ArrowDownIcon } from '../assets/icons.js';
+import { ArrowLeftIcon, DownloadIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon, ClockIcon, CheckCircleIcon as CheckIcon, EyeIcon, ClipboardCheckIcon, ChartBarIcon, ArrowUpIcon, ArrowDownIcon } from '../assets/icons.js';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Pie, Bar, getElementAtEvent } from 'react-chartjs-2';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 // --- Helper Functions ---
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date)) return 'Invalid Date';
+    return date.toLocaleString('az-AZ');
+};
+
 const isAnswerCorrect = (question, userAnswer) => {
     if (userAnswer === undefined || userAnswer === null) return false;
     switch (question.type) {
@@ -147,13 +154,18 @@ const AnalyticsOverview = ({ analytics, pieChartData, onPieChartClick, onAnalyze
         <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-1"><h3 className="font-bold text-lg mb-4">Ümumi Göstəricilər</h3><div className="space-y-3"><p><strong>Testi Tamamlayanlar:</strong> {analytics.totalCompletions}</p><p><strong>Unikal Tələbələr:</strong> {analytics.uniqueStudents}</p><p><strong>Orta Nəticə:</strong> {analytics.averageScore.toFixed(1)}%</p></div></Card>
-                <Card className="lg:col-span-2"><h3 className="font-bold text-lg mb-4">Nəticələrin Paylanması</h3><div className="h-64 flex items-center justify-center">{pieChartData && <Pie data={pieChartData} options={{ responsive: true, maintainAspectRatio: false, onClick: handleChartClick }} ref={chartRef} />}</div></Card>
+                <Card className="lg:col-span-2">
+                    <h3 className="font-bold text-lg mb-4">Nəticələrin Paylanması</h3>
+                    <div className="h-64 flex items-center justify-center">
+                        {pieChartData && <Pie data={pieChartData} options={{ responsive: true, maintainAspectRatio: false }} onClick={handleChartClick} ref={chartRef} />}
+                    </div>
+                </Card>
             </div>
             <Card>
                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><TrophyIcon /> Liderlər Lövhəsi</h3>
                 <PaginatedLeaderboard leaderboardData={leaderboardData} />
             </Card>
-            <Card><h3 className="font-bold text-lg mb-4">Ən Çətin Suallar</h3><ul className="list-inside space-y-2">{analytics.topDifficultQuestions.length > 0 ? (analytics.topDifficultQuestions.map(([text, data]) => <li key={text}><button onClick={() => onAnalyzeQuestion({ text, quizTitle: data.quizTitle })} className="text-left text-blue-600 hover:underline flex items-center gap-2"><ChartPieIcon /><strong>{text}</strong></button> ({data.quizTitle}) - <span className="text-red-600">{data.count} səhv</span></li>)) : (<p className="text-gray-500">Səhv cavab tapılmadı.</p>)}</ul></Card>
+            <Card><h3 className="font-bold text-lg mb-4">Ən Çətin Suallar</h3><ul className="list-inside space-y-2">{analytics.topDifficultQuestions.length > 0 ? (analytics.topDifficultQuestions.map(([text, data]) => <li key={text}><button onClick={() => onAnalyzeQuestion({ text, quizTitle: data.quizTitle })} className="text-left text-blue-600 hover:underline flex items-center gap-2"><ChartBarIcon /><strong>{text}</strong></button> ({data.quizTitle}) - <span className="text-red-600">{data.count} səhv</span></li>)) : (<p className="text-gray-500">Səhv cavab tapılmadı.</p>)}</ul></Card>
         </div>
     );
 };
@@ -179,7 +191,7 @@ const ResultsTable = ({ results, onReviewResult, onSort, sortBy, sortDirection }
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedResults.map((result) => (
                             <tr key={result.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(result.date).toLocaleString('az-AZ')}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(result.created_at)}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><Link to={`/student/${result.userName}-${result.userSurname}`.toLowerCase()} className="text-blue-600 hover:underline">{result.userName} {result.userSurname}</Link></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{result.quizTitle}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500"><div className="flex flex-col"><span className="font-bold">{result.score} / {result.totalPoints} bal</span><span className="text-xs text-gray-400">{result.percentage}%</span></div></td>
@@ -222,10 +234,10 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
             filtered = filtered.filter(r => r.quizTitle === selectedQuizFilter);
         }
         if (dateRange.start) {
-            filtered = filtered.filter(r => new Date(r.date) >= new Date(dateRange.start));
+            filtered = filtered.filter(r => new Date(r.created_at) >= new Date(dateRange.start));
         }
         if (dateRange.end) {
-            filtered = filtered.filter(r => new Date(r.date) <= new Date(dateRange.end).setHours(23, 59, 59, 999));
+            filtered = filtered.filter(r => new Date(r.created_at) <= new Date(dateRange.end).setHours(23, 59, 59, 999));
         }
         return filtered;
     }, [results, searchTerm, selectedQuizFilter, dateRange]);
@@ -234,13 +246,13 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
     const completedResults = useMemo(() => filteredResults.filter(r => r.status !== 'pending_review'), [filteredResults]);
 
     const sortedPendingResults = useMemo(() => {
-        return [...pendingResults].sort((a, b) => new Date(b.date) - new Date(a.date));
+        return [...pendingResults].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }, [pendingResults]);
 
     const sortedCompletedResults = useMemo(() => {
         return [...completedResults].sort((a, b) => {
             let compareValue = 0;
-            if (sortBy === 'date') compareValue = new Date(b.date).getTime() - new Date(a.date).getTime();
+            if (sortBy === 'date') compareValue = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             else if (sortBy === 'name') compareValue = `${a.userName} ${a.userSurname}`.localeCompare(`${b.userName} ${b.userSurname}`);
             else if (sortBy === 'quizTitle') compareValue = a.quizTitle.localeCompare(b.quizTitle);
             else if (sortBy === 'score') compareValue = b.score - a.score;
@@ -291,7 +303,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
                     bestScores[studentIdentifier] = result;
                 }
             });
-            const topStudents = Object.values(bestScores).sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date)).slice(0, 3);
+            const topStudents = Object.values(bestScores).sort((a, b) => b.score - a.score || new Date(a.created_at) - new Date(b.created_at)).slice(0, 3);
             return { quizTitle, topStudents };
         }).filter(item => item.topStudents.length > 0);
     }, [completedResults, results, selectedQuizFilter]);
@@ -335,7 +347,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         const headers = ["Ad", "Soyad", "Test Adı", "Toplanan Bal", "Maksimum Bal", "Faiz", "Status", "Tarix"];
         const csvRows = [headers.join(',')];
         dataToExport.forEach(result => {
-            const row = [`"${result.userName}"`, `"${result.userSurname}"`, `"${result.quizTitle}"`, result.score, result.totalPoints, result.percentage, result.status, new Date(result.date).toLocaleString('az-AZ')];
+            const row = [`"${result.userName}"`, `"${result.userSurname}"`, `"${result.quizTitle}"`, result.score, result.totalPoints, result.percentage, result.status, formatDate(result.created_at)];
             csvRows.push(row.join(','));
         });
         const csvString = csvRows.join('\n');

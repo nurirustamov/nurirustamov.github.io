@@ -8,13 +8,20 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date)) return 'Invalid Date';
+    return date.toLocaleString('az-AZ');
+};
+
 const StudentReportPage = ({ results, onReviewResult }) => {
     const { studentSlug } = useParams();
 
     const studentResults = useMemo(() => {
         return results
             .filter(r => `${r.userName}-${r.userSurname}`.toLowerCase() === studentSlug)
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     }, [results, studentSlug]);
 
     const studentName = studentResults.length > 0 ? `${studentResults[0].userName} ${studentResults[0].userSurname}` : '';
@@ -41,7 +48,7 @@ const StudentReportPage = ({ results, onReviewResult }) => {
     const chartData = useMemo(() => {
         if (!analytics) return null;
         return {
-            labels: studentResults.map(r => r.quizTitle),
+            labels: studentResults.map(r => `${r.quizTitle} (${formatDate(r.created_at)})`),
             datasets: [
                 {
                     label: 'Tələbənin Nəticəsi (%)',
@@ -125,7 +132,7 @@ const StudentReportPage = ({ results, onReviewResult }) => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {studentResults.sort((a, b) => new Date(b.date) - new Date(a.date)).map(result => (
+                            {studentResults.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(result => (
                                 <tr key={result.id} className="hover:bg-gray-50">
                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                         <button onClick={() => onReviewResult(result)} className="text-blue-600 hover:underline text-left">
@@ -138,7 +145,7 @@ const StudentReportPage = ({ results, onReviewResult }) => {
                                             <span className="text-xs text-gray-400">({result.correctAnswersCount}/{result.totalQuestions} düzgün)</span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(result.date).toLocaleString('az-AZ')}</td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(result.created_at)}</td>
                                 </tr>
                             ))}
                         </tbody>
