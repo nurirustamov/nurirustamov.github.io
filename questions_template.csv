@@ -1,0 +1,4 @@
+text,type,options,correctAnswers,explanation
+"Paytaxt hansı şəhərdir?","single","Bakı;Gəncə;Sumqayıt","Bakı","Azərbaycanın paytaxtı Bakıdır."
+"Hansı dillər proqramlaşdırma dilləridir?","multiple","HTML;CSS;JavaScript;Java","JavaScript;Java","HTML və CSS proqramlaşdırma deyil, işarələmə dilləridir."
+"React kitabxanası kim tərəfindən yaradılıb?","textInput","Facebook","Facebook","React Facebook (indiki Meta) tərəfindən yaradılıb."
