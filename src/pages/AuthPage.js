@@ -19,27 +19,24 @@ const AuthPage = ({ showToast }) => {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) showToast(error.error_description || error.message);
         } else if (view === 'register') {
-            const { data, error } = await supabase.auth.signUp({ 
-                email, 
-                password, 
-            });
-            if (error) {
-                showToast(error.error_description || error.message);
-            } else if (data.user) {
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({ 
+            // Теперь мы просто создаем пользователя и передаем имя/фамилию в метаданные.
+            // Триггер в базе данных сделает все остальное.
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
                         first_name: firstName,
                         last_name: lastName,
-                        username: `${firstName} ${lastName}`
-                    })
-                    .eq('id', data.user.id);
-
-                if (profileError) {
-                    showToast(`Profil yenilənərkən xəta: ${profileError.message}`);
-                } else {
-                    showToast('Qeydiyyat uğurludur! Zəhmət olmasa, emailinizi təsdiqləyin.');
+                    }
                 }
+            });
+
+            if (error) {
+                showToast(error.error_description || error.message);
+            } else {
+                showToast('Qeydiyyat uğurludur! Zəhmət olmasa, emailinizi təsdiqləyin.');
+                setView('login');
             }
         }
         setLoading(false);

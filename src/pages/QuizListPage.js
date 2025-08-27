@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, UploadIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon } from '../assets/icons';
+import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, UploadIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon, LockClosedIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -62,8 +62,13 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
                 <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
                     <span>{questions.length} sual</span>
                     <div className="flex items-center gap-3">
+                        {quiz.passcode && (
+                            <span className="flex items-center gap-1 font-medium text-gray-600" title="Giriş kodu tələb olunur">
+                                <LockClosedIcon className="h-4 w-4" />
+                            </span>
+                        )}
                         {quiz.attempt_limit > 0 && (
-                            <span className="flex items-center gap-1 font-medium text-purple-600">
+                            <span className="flex items-center gap-1 font-medium text-purple-600" title={`Maksimum ${quiz.attempt_limit} cəhd`}>
                                 <RefreshIcon className="h-4 w-4" />
                                 {quiz.attempt_limit} cəhd
                             </span>
@@ -110,7 +115,7 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                 (quiz.isArchived || false) === showArchived &&
                 (selectedCategory === 'all' || (quiz.category || 'Kateqoriyasız') === selectedCategory) &&
                 (quiz.title.toLowerCase().includes(term) ||
-                (quiz.description && quiz.description.toLowerCase().includes(term)))
+                    (quiz.description && quiz.description.toLowerCase().includes(term)))
             )
             .sort((a, b) => {
                 switch (sortBy) {
@@ -165,14 +170,14 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {sortedAndFilteredQuizzes.map(quiz => (
-                        <QuizCard 
-                            key={quiz.id} 
-                            quiz={quiz} 
-                            onStartQuiz={onStartQuiz} 
-                            onCloneQuiz={onCloneQuiz} 
-                            onEditQuiz={onEditQuiz} 
-                            onArchiveRequest={onArchiveRequest} 
-                            onDeleteRequest={onDeleteRequest} 
+                        <QuizCard
+                            key={quiz.id}
+                            quiz={quiz}
+                            onStartQuiz={onStartQuiz}
+                            onCloneQuiz={onCloneQuiz}
+                            onEditQuiz={onEditQuiz}
+                            onArchiveRequest={onArchiveRequest}
+                            onDeleteRequest={onDeleteRequest}
                             isAdmin={isAdmin}
                         />
                     ))}

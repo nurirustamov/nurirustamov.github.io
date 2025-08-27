@@ -8,12 +8,11 @@ import Modal from './components/ui/Modal';
 import Toast from './components/ui/Toast';
 import WavingCat from './components/WavingCat';
 import Button from './components/ui/Button';
-import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon } from './assets/icons';
+import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon } from './assets/icons';
 
 // --- Страницы ---
 import AuthPage from './pages/AuthPage';
 import ProfilePage from './pages/ProfilePage';
-import LeaderboardPage from './pages/LeaderboardPage';
 import QuizListPage from './pages/QuizListPage';
 import QuizEditorPage from './pages/QuizEditorPage';
 import TakeQuizPage from './pages/TakeQuizPage';
@@ -24,6 +23,7 @@ import StudentReportPage from './pages/StudentReportPage';
 import QuestionBankPage from './pages/QuestionBankPage';
 import PastQuizReviewPage from './pages/PastQuizReviewPage';
 import ManualReviewPage from './pages/ManualReviewPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 
 // --- Вспомогательные функции ---
 const isAnswerCorrect = (question, userAnswer) => {
@@ -44,6 +44,27 @@ const isAnswerCorrect = (question, userAnswer) => {
 };
 
 // --- Модальные окна ---
+const PasscodeModal = ({ isOpen, onClose, onConfirm, showToast }) => {
+    const [passcode, setPasscode] = useState('');
+    const handleConfirm = () => {
+        onConfirm(passcode);
+    };
+    if (!isOpen) return null;
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Giriş Kodu Tələb Olunur">
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Giriş Kodu</label>
+                    <input type="text" value={passcode} onChange={(e) => setPasscode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Kodu daxil edin" />
+                </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+                <Button onClick={handleConfirm}>Təsdiqlə</Button>
+            </div>
+        </Modal>
+    );
+};
+
 const ModeSelectionModal = ({ isOpen, onClose, onSelect }) => {
     if (!isOpen) return null;
     return (
@@ -127,6 +148,115 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
     );
 };
 
+// --- Компоненты-обертки для страниц (вынесены из App для стабильности) ---
+
+const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin }) => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryParams = new URLSearchParams(location.search);
+    const showArchived = queryParams.get('showArchived') === 'true';
+
+    const handleSetShowArchived = (value) => {
+        navigate({ search: createSearchParams({ showArchived: value }).toString() });
+    };
+
+    return <QuizListPage 
+        quizzes={quizzes} 
+        onStartQuiz={onStartQuiz} 
+        onAddNewQuiz={onAddNewQuiz} 
+        onEditQuiz={onEditQuiz} 
+        onDeleteRequest={onDeleteRequest} 
+        onCloneQuiz={onCloneQuiz} 
+        onArchiveRequest={onArchiveRequest}
+        onStartSmartPractice={onStartSmartPractice}
+        showArchived={showArchived}
+        setShowArchived={handleSetShowArchived}
+        isAdmin={isAdmin}
+    />;
+};
+
+const StatisticsPageWrapper = ({ results, quizzes, onReviewResult }) => {
+    const navigate = useNavigate();
+    return <StatisticsPage results={results} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={onReviewResult} />;
+};
+
+const StudentReportPageWrapper = ({ results, onReviewResult }) => {
+    const navigate = useNavigate();
+    return <StudentReportPage results={results} onBack={() => navigate('/stats')} onReviewResult={onReviewResult} />;
+};
+
+const QuestionBankPageWrapper = ({ questionBank, onSave, onDelete, showToast }) => (
+    <QuestionBankPage questionBank={questionBank} onSave={onSave} onDelete={onDelete} showToast={showToast} />
+);
+
+const LeaderboardPageWrapper = ({ results }) => (
+    <LeaderboardPage results={results} />
+);
+
+const PastQuizReviewPageWrapper = ({ quizResults, quizzes, profile, fetchComments, postComment, deleteComment }) => {
+    const { resultId } = useParams();
+    const result = quizResults.find(r => r.id === Number(resultId));
+    if (!result) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
+    const quiz = quizzes.find(q => q.id === result.quizId);
+    if (!quiz) return <div className="text-center text-red-500">Test tapılmadı!</div>;
+    return <PastQuizReviewPage result={result} quiz={quiz} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
+};
+
+const ManualReviewPageWrapper = ({ results, quizzes, onUpdateResult }) => (
+    <ManualReviewPage results={results} quizzes={quizzes} onUpdateResult={onUpdateResult} />
+);
+
+const QuizPageWrapper = ({ 
+    pageType, 
+    editingQuizDraft, 
+    customPracticeQuiz, 
+    quizzes, 
+    lastResult, 
+    quizResults, 
+    session, 
+    profile, 
+    existingCategories, 
+    showToast, 
+    handleSaveQuiz, 
+    handleImportRequest, 
+    handleAddFromBankRequest, 
+    setEditingQuizDraft, 
+    handleSubmitQuiz 
+}) => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    let quiz;
+
+    if (pageType === 'edit') {
+        quiz = editingQuizDraft;
+    } else if (pageType === 'custom_practice') {
+        quiz = customPracticeQuiz;
+    } else {
+        quiz = quizzes.find(q => q.id === Number(id));
+    }
+
+    if (!quiz) return <div className="text-center text-red-500">Yüklənir...</div>;
+
+    switch (pageType) {
+        case 'edit': 
+            return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={() => handleImportRequest(quiz.id)} onAddFromBankRequest={() => handleAddFromBankRequest(quiz.id)} onDraftChange={setEditingQuizDraft} />;
+        case 'take': 
+            return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
+        case 'practice': 
+            return <TakeQuizPage quiz={quiz} user={{ username: 'Tələbə' }} mode="practice" />;
+        case 'custom_practice': 
+            return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
+        case 'result': 
+            return <QuizResultPage lastResult={lastResult} allResultsForThisQuiz={quizResults.filter(r => r.quizId === quiz.id)} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
+        case 'review': 
+            const resultForReview = lastResult || quizResults.find(r => r.quizId === quiz.id && r.user_id === session.user.id);
+            if (!resultForReview) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
+            return <QuizReviewPage quiz={quiz} userAnswers={resultForReview.userAnswers} questionOrder={resultForReview.questionOrder} onBack={() => navigate(-1)} profile={profile} />;
+        default: 
+            return navigate('/');
+    }
+};
+
 export default function App() {
     const [session, setSession] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -135,6 +265,7 @@ export default function App() {
     const [questionBank, setQuestionBank] = useState([]);
     const [quizResults, setQuizResults] = useState([]);
     const [customPracticeQuiz, setCustomPracticeQuiz] = useState(null);
+    const [editingQuizDraft, setEditingQuizDraft] = useState(null);
     
     const [lastResult, setLastResult] = useState(null);
     const [toast, setToast] = useState({ message: '', isVisible: false });
@@ -146,6 +277,8 @@ export default function App() {
     const [quizToImportInto, setQuizToImportInto] = useState(null);
     const [isAddFromBankModalOpen, setIsAddFromBankModalOpen] = useState(false);
     const [quizToAddTo, setQuizToAddTo] = useState(null);
+    const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
+    const [passcodeQuiz, setPasscodeQuiz] = useState(null);
 
     const navigate = useNavigate();
 
@@ -167,7 +300,7 @@ export default function App() {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            if (session) {
+            if (session?.user) {
                 const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
                 if (profileError) {
                     showToast('Profil yüklənərkən xəta baş verdi.');
@@ -185,13 +318,16 @@ export default function App() {
                 setQuizResults(resultsData || []);
             } else {
                 setProfile(null);
+                setQuizzes([]);
+                setQuestionBank([]);
+                setQuizResults([]);
             }
         };
         
         if (!isAuthLoading) {
             fetchUserData();
         }
-    }, [session, isAuthLoading]);
+    }, [session?.user?.id, isAuthLoading]);
 
     const existingCategories = useMemo(() => {
         const categories = new Set(quizzes.map(q => q.category).filter(Boolean));
@@ -218,6 +354,7 @@ export default function App() {
             showToast(`Test yaradılarkən xəta: ${error.message}`);
         } else if (newQuiz) {
             setQuizzes(prev => [newQuiz, ...prev]);
+            setEditingQuizDraft(newQuiz); // Инициализируем черновик
             navigate(`/quiz/${newQuiz.id}/edit`);
             showToast('Yeni test uğurla yaradıldı!');
         }
@@ -225,7 +362,11 @@ export default function App() {
 
     const handleEditQuizRequest = (quizId) => {
         if (checkAdmin()) {
-            navigate(`/quiz/${quizId}/edit`);
+            const quizToEdit = quizzes.find(q => q.id === quizId);
+            if (quizToEdit) {
+                setEditingQuizDraft(quizToEdit); // Инициализируем черновик
+                navigate(`/quiz/${quizId}/edit`);
+            }
         }
     };
 
@@ -249,6 +390,7 @@ export default function App() {
             showToast(`Test kopyalanarkən xəta: ${cloneError.message}`);
         } else if (clonedQuiz) {
             setQuizzes(prev => [clonedQuiz, ...prev]);
+            setEditingQuizDraft(clonedQuiz);
             navigate(`/quiz/${clonedQuiz.id}/edit`);
             showToast('Test uğurla kopyalandı!');
         }
@@ -271,13 +413,14 @@ export default function App() {
         }
     };
 
-    const handleSaveQuiz = async (updatedQuiz) => {
-        const { id, ...quizDataToUpdate } = updatedQuiz;
+    const handleSaveQuiz = async (quizToSave) => {
+        const { id, ...quizDataToUpdate } = quizToSave;
         const { data, error } = await supabase.from('quizzes').update(quizDataToUpdate).eq('id', id).select().single();
         if (error) {
             showToast(`Testi yeniləyərkən xəta: ${error.message}`);
         } else if (data) {
             setQuizzes(prevQuizzes => prevQuizzes.map(q => (q.id === data.id ? data : q)));
+            setEditingQuizDraft(null); // Очищаем черновик после сохранения
             showToast("Test uğurla yeniləndi!");
             navigate('/');
         }
@@ -334,7 +477,9 @@ export default function App() {
         }
 
         const quiz = quizzes.find(q => q.id === quizId);
-        if (quiz && quiz.attempt_limit > 0) {
+        if (!quiz) return;
+
+        if (quiz.attempt_limit > 0) {
             const { data, error } = await supabase
                 .from('quiz_results')
                 .select('id', { count: 'exact' })
@@ -347,13 +492,28 @@ export default function App() {
             }
 
             if (data.length >= quiz.attempt_limit) {
-                showToast('Bu test üçün cəhd limitiniz bitib.');
+                showToast('Siz bu test üçün bütün cəhdlərinizi istifadə etmisiniz.');
                 return;
             }
         }
 
-        setQuizToStartId(quizId);
-        setIsModeSelectionModalOpen(true);
+        if (quiz.passcode) {
+            setPasscodeQuiz(quiz);
+            setIsPasscodeModalOpen(true);
+        } else {
+            setQuizToStartId(quizId);
+            setIsModeSelectionModalOpen(true);
+        }
+    };
+
+    const handlePasscodeConfirm = (enteredPasscode) => {
+        if (passcodeQuiz && enteredPasscode === passcodeQuiz.passcode) {
+            setIsPasscodeModalOpen(false);
+            setQuizToStartId(passcodeQuiz.id);
+            setIsModeSelectionModalOpen(true);
+        } else {
+            showToast('Yanlış giriş kodu!');
+        }
     };
 
     const handleStartSmartPractice = () => {
@@ -505,11 +665,7 @@ export default function App() {
                         };
                     });
 
-                    setQuizzes(prevQuizzes => prevQuizzes.map(quiz => 
-                        quiz.id === quizToImportInto 
-                            ? { ...quiz, questions: [...(quiz.questions || []), ...newQuestions] } 
-                            : quiz
-                    ));
+                    setEditingQuizDraft(prev => ({...prev, questions: [...(prev.questions || []), ...newQuestions]}));
                     showToast(`${newQuestions.length} sual uğurla idxal edildi!`);
                 } catch (error) {
                     showToast('Faylın emalı zamanı xəta baş verdi.');
@@ -527,11 +683,7 @@ export default function App() {
 
     const handleAddQuestionsFromBank = (questionIds) => {
         const questionsToAdd = questionBank.filter(q => questionIds.includes(q.id));
-        setQuizzes(prevQuizzes => prevQuizzes.map(quiz => 
-            quiz.id === quizToAddTo
-                ? { ...quiz, questions: [...(quiz.questions || []), ...questionsToAdd.map(q => ({...q, id: Date.now() + Math.random()}))] } 
-                : quiz
-        ));
+        setEditingQuizDraft(prev => ({...prev, questions: [...(prev.questions || []), ...questionsToAdd.map(q => ({...q, id: Date.now() + Math.random()}))]}));
         showToast(`${questionsToAdd.length} sual bankdan əlavə edildi.`);
     };
 
@@ -615,123 +767,57 @@ export default function App() {
         return <div className="min-h-screen flex items-center justify-center bg-orange-50">Sessiya yoxlanılır...</div>;
     }
 
-    const AppContent = () => (
-        <div className="bg-orange-50 min-h-screen font-sans text-gray-900">
-            <header className="bg-white shadow-md sticky top-0 z-40">
-                <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
-                    <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
-                    <div className="flex items-center gap-2">
-                        {session ? (
-                            <>
-                                <Link to="/leaderboard"><Button as="span" variant="secondary"><TrophyIcon /><span className="hidden sm:inline ml-2">Reytinqlər</span></Button></Link>
-                                {profile?.role === 'admin' && (
-                                    <>
-                                        <Button onClick={handleQuestionBankRequest} variant="secondary"><LibraryIcon /><span className="hidden sm:inline ml-2">Suallar Bankı</span></Button>
-                                        <Link to="/stats"><Button as="span" variant="secondary"><ChartBarIcon /><span className="hidden sm:inline ml-2">Statistika</span></Button></Link>
-                                    </>
-                                )}
-                                <Link to="/profile" className="text-sm text-gray-600 hidden sm:inline hover:underline">
-                                    {profile?.first_name || session.user.email} {profile?.last_name}
-                                </Link>
-                                <Button onClick={handleSignOut} variant="danger"><LogoutIcon /></Button>
-                            </>
-                        ) : (
-                            <Link to="/auth"><Button as="span" variant="primary">Daxil Ol</Button></Link>
-                        )}
-                    </div>
-                </div>
-            </header>
-            <main className="container mx-auto px-4 py-6 md:py-8">
-                <Routes>
-                    <Route path="/" element={<QuizListPageWrapper />} />
-                    <Route path="/leaderboard" element={<LeaderboardPageWrapper />} />
-                    <Route path="/stats" element={<StatisticsPageWrapper />} />
-                    <Route path="/student/:userId" element={<StudentReportPageWrapper />} />
-                    <Route path="/question-bank" element={<QuestionBankPageWrapper />} />
-                    <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper />} />
-                    <Route path="/manual-review/:resultId" element={<ManualReviewPageWrapper />} />
-                    <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} />} />
-                    <Route path="/quiz/:id/edit" element={<QuizPageWrapper pageType="edit" />} />
-                    <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" />} />
-                    <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" />} />
-                    <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" />} />
-                    <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" />} />
-                    <Route path="/quiz/:id/review" element={<QuizPageWrapper pageType="review" />} />
-                </Routes>
-            </main>
-            <footer className="text-center py-4 text-gray-500 text-sm"><p>&copy; {new Date().getFullYear()} EduventureWithSeda. Bütün hüquqlar qorunur.</p></footer>
-        </div>
-    );
-
-    const QuizListPageWrapper = () => {
-        const location = useLocation();
-        const navigate = useNavigate();
-        const queryParams = new URLSearchParams(location.search);
-        const showArchived = queryParams.get('showArchived') === 'true';
-
-        const handleSetShowArchived = (value) => {
-            navigate({ search: createSearchParams({ showArchived: value }).toString() });
-        };
-
-        return <QuizListPage 
-            quizzes={quizzes} 
-            onStartQuiz={handleStartQuizRequest} 
-            onAddNewQuiz={handleAddNewQuizRequest} 
-            onEditQuiz={handleEditQuizRequest} 
-            onDeleteRequest={handleDeleteQuizRequest} 
-            onCloneQuiz={handleCloneQuizRequest} 
-            onArchiveRequest={handleArchiveQuizRequest}
-            onStartSmartPractice={handleStartSmartPractice}
-            showArchived={showArchived}
-            setShowArchived={handleSetShowArchived}
-            isAdmin={profile?.role === 'admin'}
-        />;
-    }
-    const LeaderboardPageWrapper = () => <LeaderboardPage results={quizResults} />;
-    const StatisticsPageWrapper = () => <StatisticsPage results={quizResults} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={handleReviewRequest} />;
-    const StudentReportPageWrapper = () => <StudentReportPage results={quizResults} onReviewResult={handleReviewRequest} />;
-    const QuestionBankPageWrapper = () => <QuestionBankPage questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} />;
-    
-    const PastQuizReviewPageWrapper = () => {
-        const { resultId } = useParams();
-        const result = quizResults.find(r => r.id === Number(resultId));
-        if (!result) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
-        const quiz = quizzes.find(q => q.id === result.quizId);
-        if (!quiz) return <div className="text-center text-red-500">Test tapılmadı!</div>;
-        return <PastQuizReviewPage result={result} quiz={quiz} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
-    };
-
-    const ManualReviewPageWrapper = () => {
-        return <ManualReviewPage results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} />;
-    };
-
-    const QuizPageWrapper = ({ pageType }) => {
-        const { id } = useParams();
-        const quiz = pageType === 'custom_practice' ? customPracticeQuiz : quizzes.find(q => q.id === Number(id));
-        if (!quiz) return <div className="text-center text-red-500">Test tapılmadı!</div>;
-
-        switch (pageType) {
-            case 'edit': return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={() => handleImportRequest(quiz.id)} onAddFromBankRequest={() => handleAddFromBankRequest(quiz.id)} />;
-            case 'take': return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
-            case 'practice': return <TakeQuizPage quiz={quiz} user={{ username: 'Tələbə' }} mode="practice" />;
-            case 'custom_practice': return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
-            case 'result': return <QuizResultPage lastResult={lastResult} allResultsForThisQuiz={quizResults.filter(r => r.quizId === quiz.id)} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
-            case 'review': 
-                const resultForReview = lastResult || quizResults.find(r => r.quizId === quiz.id && r.user_id === session.user.id);
-                if (!resultForReview) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
-                return <QuizReviewPage quiz={quiz} userAnswers={resultForReview.userAnswers} questionOrder={resultForReview.questionOrder} onBack={() => navigate(-1)} profile={profile} />;
-            default: return navigate('/');
-        }
-    };
-
     return (
         <>
             <Routes>
                 <Route path="/auth" element={<AuthPage showToast={showToast} />} />
-                <Route path="/*" element={session ? <AppContent /> : <AuthPage showToast={showToast} />} />
+                <Route path="/*" element={
+                    session ? (
+                        <div className="bg-orange-50 min-h-screen font-sans text-gray-900">
+                            <header className="bg-white shadow-md sticky top-0 z-40">
+                                <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
+                                    <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
+                                    <div className="flex items-center gap-2">
+                                        {profile?.role === 'admin' && (
+                                            <div className="flex items-center gap-1 sm:gap-2">
+                                                <Link to="/leaderboard"><Button as="span" variant="secondary"><LeaderboardIcon /><span className="hidden md:inline ml-2">Reytinqlər</span></Button></Link>
+                                                <Link to="/stats"><Button as="span" variant="secondary"><ChartBarIcon /><span className="hidden md:inline ml-2">Statistika</span></Button></Link>
+                                                <Button onClick={handleQuestionBankRequest} variant="secondary"><LibraryIcon /><span className="hidden md:inline ml-2">Suallar Bankı</span></Button>
+                                            </div>
+                                        )}
+                                        <Link to="/profile" className="text-sm text-gray-600 hidden sm:inline hover:underline ml-2">
+                                            {profile?.first_name || session.user.email} {profile?.last_name}
+                                        </Link>
+                                        <Button onClick={handleSignOut} variant="danger"><LogoutIcon /></Button>
+                                    </div>
+                                </div>
+                            </header>
+                            <main className="container mx-auto px-4 py-6 md:py-8">
+                                <Routes>
+                                    <Route path="/" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={handleDeleteQuizRequest} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} />} />
+                                    <Route path="/stats" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} />} />
+                                    <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} />} />
+                                    <Route path="/question-bank" element={<QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} />} />
+                                    <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
+                                    <Route path="/manual-review/:resultId" element={<ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} />} />
+                                    <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} />} />
+                                    <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} />} />
+                                    <Route path="/quiz/:id/edit" element={<QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft }} />} />
+                                    <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz }} />} />
+                                    <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes }} />} />
+                                    <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} />
+                                    <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults }} />} />
+                                    <Route path="/quiz/:id/review" element={<QuizPageWrapper pageType="review" {...{ quizzes, lastResult, quizResults, session, profile }} />} />
+                                </Routes>
+                            </main>
+                            <footer className="text-center py-4 text-gray-500 text-sm"><p>&copy; {new Date().getFullYear()} EduventureWithSeda. Bütün hüquqlar qorunur.</p></footer>
+                        </div>
+                    ) : <AuthPage showToast={showToast} />
+                } />
             </Routes>
             <Toast message={toast.message} isVisible={toast.isVisible} />
             <Modal isOpen={deleteModal.isOpen} onClose={() => setDeleteModal({ isOpen: false, quizIdToDelete: null })} onConfirm={confirmDelete} title="Silməni təsdiqləyin"><p>Bu testi silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarılmazdır.</p></Modal>
+            <PasscodeModal isOpen={isPasscodeModalOpen} onClose={() => setIsPasscodeModalOpen(false)} onConfirm={handlePasscodeConfirm} showToast={showToast} />
             <ModeSelectionModal isOpen={isModeSelectionModalOpen} onClose={() => setIsModeSelectionModalOpen(false)} onSelect={handleModeSelected} />
             <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportQuestions} showToast={showToast} />
             <AddFromBankModal isOpen={isAddFromBankModalOpen} onClose={() => setIsAddFromBankModalOpen(false)} onAdd={handleAddQuestionsFromBank} showToast={showToast} questionBank={questionBank} />

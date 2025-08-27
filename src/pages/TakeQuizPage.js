@@ -25,7 +25,18 @@ const isAnswerCorrect = (question, userAnswer) => {
 
 const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
     const navigate = useNavigate();
-    const [answers, setAnswers] = useState({});
+    
+    // Инициализируем состояние ответов, чтобы избежать ошибки uncontrolled/controlled
+    const [answers, setAnswers] = useState(() => {
+        const initialState = {};
+        (quiz.questions || []).forEach(q => {
+            if (q.type === 'textInput' || q.type === 'open') {
+                initialState[q.id] = '';
+            }
+        });
+        return initialState;
+    });
+
     const [timeLeft, setTimeLeft] = useState((quiz.timeLimit || 10) * 60);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
@@ -129,7 +140,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                     {q.type === 'multiple' && optionsForCurrentQuestion.map((option, optIndex) => (
                         <div key={optIndex} className="mb-2"><label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer border-2 ${getOptionClassName(option, optIndex)}`}><input type="checkbox" name={q.id} value={option} checked={answers[q.id]?.includes(option)} onChange={(e) => { const curr = answers[q.id] || []; const next = e.target.checked ? [...curr, e.target.value] : curr.filter(a => a !== e.target.value); handleAnswerChange(q.id, next); }} className="mr-3 h-4 w-4 text-orange-600 rounded focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} />{option}</label></div>
                     ))}
-                    {q.type === 'textInput' && <input type="text" value={answers[q.id] || ''} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className={`mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3 ${isPracticeMode && isAnswerChecked ? (isAnswerCorrect(q, answers[q.id]) ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500') : ''}`} placeholder="Cavabınızı daxil edin..." disabled={isPracticeMode && isAnswerChecked} />}
+                    {q.type === 'textInput' && <input type="text" value={answers[q.id]} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className={`mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3 ${isPracticeMode && isAnswerChecked ? (isAnswerCorrect(q, answers[q.id]) ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500') : ''}`} placeholder="Cavabınızı daxil edin..." disabled={isPracticeMode && isAnswerChecked} />}
                     {q.type === 'trueFalse' && (
                         <div className="flex flex-col sm:flex-row gap-3 mt-2">
                             <label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer flex-1 text-center border-2 ${isPracticeMode && isAnswerChecked && q.correctAnswer === true ? 'border-green-500 bg-green-100' : (isPracticeMode && isAnswerChecked && answers[q.id] === true ? 'border-red-500 bg-red-100' : 'border-transparent')}`}><input type="radio" name={q.id} checked={answers[q.id] === true} onChange={() => handleAnswerChange(q.id, true)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} /> Doğru</label>
@@ -139,7 +150,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                     {q.type === 'ordering' && <OrderingQuestion question={q} onAnswer={(orderedItems) => handleAnswerChange(q.id, orderedItems)} disabled={isPracticeMode && isAnswerChecked} />}
                     {q.type === 'open' && (
                         <textarea
-                            value={answers[q.id] || ''}
+                            value={answers[q.id]}
                             onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                             className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3"
                             placeholder="Cavabınızı bura daxil edin..."
