@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/nurirustamov.github.io/static/js/main.80a44027.js",
-    "index.html": "/nurirustamov.github.io/index.html",
-    "main.80a44027.js.map": "/nurirustamov.github.io/static/js/main.80a44027.js.map"
+    "main.js": "/static/js/main.608a67b3.js",
+    "index.html": "/index.html",
+    "main.608a67b3.js.map": "/static/js/main.608a67b3.js.map"
   },
   "entrypoints": [
-    "static/js/main.80a44027.js"
+    "static/js/main.608a67b3.js"
   ]
 }
