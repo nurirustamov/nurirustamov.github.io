@@ -1,26 +1,34 @@
 import React from 'react';
 import { StarIcon, FireIcon, AcademicCapIcon } from '@heroicons/react/24/solid';
 
-const AchievementIcon = ({ iconName, badgeColor, className = 'h-10 w-10' }) => {
-    const iconMap = {
-        sniper: StarIcon,
-        marathoner: FireIcon,
-        newbie: AcademicCapIcon,
-    };
+const iconMap = {
+    sniper: FireIcon,
+    marathoner: StarIcon,
+    newbie: AcademicCapIcon,
+    default: StarIcon,
+};
 
-    const colorMap = {
-        gold: 'text-yellow-500',
-        silver: 'text-gray-400',
-        bronze: 'text-orange-400',
-    };
+const colorMap = {
+    gold: 'text-yellow-500',
+    silver: 'text-gray-400',
+    bronze: 'text-orange-700',
+    default: 'text-gray-400',
+};
 
-    const IconComponent = iconMap[iconName] || StarIcon; // Иконка по умолчанию
-    const colorClass = colorMap[badgeColor] || 'text-gray-500';
+const AchievementIcon = ({ achievement }) => {
+    if (!achievement) return null;
+
+    const IconComponent = iconMap[achievement.icon_name] || iconMap.default;
+    const iconColor = colorMap[achievement.badge_color] || colorMap.default;
 
     return (
-        <div className={`relative ${className}`}>
-            <IconComponent className={colorClass} />
-            <div className={`absolute inset-0 ${colorClass} opacity-25 blur-sm`}></div>
+        <div 
+            className="flex flex-col items-center justify-start text-center p-3 rounded-lg bg-gray-50 border border-gray-200 w-32 h-30"
+            title={`${achievement.name}: ${achievement.description}`}
+        >
+            <IconComponent className={`h-10 w-10 ${iconColor} mb-2 flex-shrink-0`} />
+            <p className="text-xs font-bold text-gray-800 break-words">{achievement.name}</p>
+            <p className="mt-1 text-gray-500" style={{ fontSize: '0.7rem', lineHeight: '0.9rem' }}>{achievement.description}</p>
         </div>
     );
 };

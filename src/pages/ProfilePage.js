@@ -1,40 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import AchievementIcon from '../components/ui/AchievementIcon'; // Импортируем новый компонент
+import { ChartBarIcon, TrophyIcon } from '../assets/icons';
+import AchievementIcon from '../components/ui/AchievementIcon';
 
-const ProfilePage = ({ session, profile, showToast, onProfileUpdate }) => {
+const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchievements }) => {
     const [loading, setLoading] = useState(false);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [achievements, setAchievements] = useState([]);
 
     useEffect(() => {
         if (profile) {
             setFirstName(profile.first_name || '');
             setLastName(profile.last_name || '');
-            
-            const fetchAchievements = async () => {
-                const { data, error } = await supabase
-                    .from('user_achievements')
-                    .select(`
-                        achievements ( id, name, description, icon_name, badge_color )
-                    `)
-                    .eq('user_id', session.user.id);
-                
-                if (error) {
-                    showToast("Uğurları yükləyərkən xəta baş verdi.");
-                } else {
-                    setAchievements(data.map(item => item.achievements));
-                }
-            };
-
-            fetchAchievements();
         }
-    }, [profile, session]);
+    }, [profile]);
 
     const handleProfileUpdate = async (e) => {
         e.preventDefault();
@@ -83,9 +67,31 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate }) => {
         setLoading(false);
     };
 
+    if (!session || !profile) {
+        return <div>Yüklənir...</div>;
+    }
+
     return (
         <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profil Tənzimləmələri</h1>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Profil Tənzimləmələri</h1>
+                 <Link to={`/student/${session.user.id}`}>
+                    <Button variant="primary"><ChartBarIcon /> Mənim Nəticələrim</Button>
+                </Link>
+            </div>
+
+            <Card>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><TrophyIcon /> Nailiyyətlər</h2>
+                <div className="flex flex-wrap gap-4">
+                    {userAchievements && userAchievements.length > 0 ? (
+                        userAchievements.map(ach => (
+                            <AchievementIcon key={ach.id} achievement={ach.achievements} />
+                        ))
+                    ) : (
+                        <p className="text-gray-500">Hələ heç bir nailiyyətiniz yoxdur.</p>
+                    )}
+                </div>
+            </Card>
             
             <Card>
                 <h2 className="text-xl font-bold mb-4">Şəxsi Məlumatlar</h2>
@@ -104,23 +110,6 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate }) => {
                         <Button type="submit" disabled={loading}>{loading ? 'Yenilənir...' : 'Məlumatları Yenilə'}</Button>
                     </div>
                 </form>
-            </Card>
-
-            <Card>
-                <h2 className="text-xl font-bold mb-4">Uğurlar</h2>
-                {achievements.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {achievements.map(ach => (
-                            <div key={ach.id} className="flex flex-col items-center text-center p-2 rounded-lg hover:bg-gray-100">
-                                <AchievementIcon iconName={ach.icon_name} badgeColor={ach.badge_color} />
-                                <p className="font-semibold mt-2 text-sm">{ach.name}</p>
-                                <p className="text-xs text-gray-500">{ach.description}</p>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-gray-500 text-center py-4">Hələ heç bir uğur əldə etməmisiniz.</p>
-                )}
             </Card>
 
             <Card>

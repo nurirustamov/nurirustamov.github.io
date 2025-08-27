@@ -8,7 +8,7 @@ import Modal from './components/ui/Modal';
 import Toast from './components/ui/Toast';
 import WavingCat from './components/WavingCat';
 import Button from './components/ui/Button';
-import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon } from './assets/icons';
+import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon } from './assets/icons';
 
 // --- Страницы ---
 import AuthPage from './pages/AuthPage';
@@ -266,6 +266,7 @@ export default function App() {
     const [quizResults, setQuizResults] = useState([]);
     const [customPracticeQuiz, setCustomPracticeQuiz] = useState(null);
     const [editingQuizDraft, setEditingQuizDraft] = useState(null);
+    const [userAchievements, setUserAchievements] = useState([]);
     
     const [lastResult, setLastResult] = useState(null);
     const [toast, setToast] = useState({ message: '', isVisible: false });
@@ -316,11 +317,16 @@ export default function App() {
 
                 const { data: resultsData } = await supabase.from('quiz_results').select('*').order('created_at', { ascending: false });
                 setQuizResults(resultsData || []);
+
+                const { data: achievementsData } = await supabase.from('user_achievements').select('*, achievements(*)').eq('user_id', session.user.id);
+                setUserAchievements(achievementsData || []);
+
             } else {
                 setProfile(null);
                 setQuizzes([]);
                 setQuestionBank([]);
                 setQuizResults([]);
+                setUserAchievements([]);
             }
         };
         
@@ -354,7 +360,7 @@ export default function App() {
             showToast(`Test yaradılarkən xəta: ${error.message}`);
         } else if (newQuiz) {
             setQuizzes(prev => [newQuiz, ...prev]);
-            setEditingQuizDraft(newQuiz); // Инициализируем черновик
+            setEditingQuizDraft(newQuiz);
             navigate(`/quiz/${newQuiz.id}/edit`);
             showToast('Yeni test uğurla yaradıldı!');
         }
@@ -364,7 +370,7 @@ export default function App() {
         if (checkAdmin()) {
             const quizToEdit = quizzes.find(q => q.id === quizId);
             if (quizToEdit) {
-                setEditingQuizDraft(quizToEdit); // Инициализируем черновик
+                setEditingQuizDraft(quizToEdit);
                 navigate(`/quiz/${quizId}/edit`);
             }
         }
@@ -420,7 +426,7 @@ export default function App() {
             showToast(`Testi yeniləyərkən xəta: ${error.message}`);
         } else if (data) {
             setQuizzes(prevQuizzes => prevQuizzes.map(q => (q.id === data.id ? data : q)));
-            setEditingQuizDraft(null); // Очищаем черновик после сохранения
+            setEditingQuizDraft(null);
             showToast("Test uğurla yeniləndi!");
             navigate('/');
         }
@@ -569,6 +575,48 @@ export default function App() {
         }
     };
 
+    const checkAndAwardAchievements = async (newResult) => {
+        const { data: allAchievements } = await supabase.from('achievements').select('*');
+        if (!allAchievements) return;
+
+        const userAchievementIds = new Set(userAchievements.map(a => a.achievement_id));
+        const newAchievementsToAward = [];
+
+        // Achievement 1: Новичок (ID 3)
+        const newbieId = allAchievements.find(a => a.icon_name === 'newbie')?.id;
+        if (newbieId && !userAchievementIds.has(newbieId)) {
+            const { count } = await supabase.from('quiz_results').select('id', { count: 'exact', head: true }).eq('user_id', newResult.user_id);
+            if (count === 1) {
+                newAchievementsToAward.push({ user_id: newResult.user_id, achievement_id: newbieId });
+            }
+        }
+
+        // Achievement 2: Снайпер (ID 1)
+        const sniperId = allAchievements.find(a => a.icon_name === 'sniper')?.id;
+        if (sniperId && newResult.percentage === 100 && !userAchievementIds.has(sniperId)) {
+            newAchievementsToAward.push({ user_id: newResult.user_id, achievement_id: sniperId });
+        }
+
+        // Achievement 3: Марафонец (ID 2)
+        const marathonerId = allAchievements.find(a => a.icon_name === 'marathoner')?.id;
+        if (marathonerId && !userAchievementIds.has(marathonerId)) {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const { count } = await supabase.from('quiz_results').select('id', { count: 'exact', head: true }).eq('user_id', newResult.user_id).gt('created_at', sevenDaysAgo.toISOString());
+            if (count >= 5) {
+                newAchievementsToAward.push({ user_id: newResult.user_id, achievement_id: marathonerId });
+            }
+        }
+
+        if (newAchievementsToAward.length > 0) {
+            const { data: awarded, error } = await supabase.from('user_achievements').insert(newAchievementsToAward).select('*, achievements(*)');
+            if (!error && awarded) {
+                setUserAchievements(prev => [...prev, ...awarded]);
+                awarded.forEach(a => showToast(`Yeni nailiyyət: ${a.achievements.name}!`));
+            }
+        }
+    };
+
     const handleSubmitQuiz = async (quizId, answers, questionsInOrder) => {
         const quiz = quizzes.find(q => q.id === quizId);
         let score = 0;
@@ -619,6 +667,7 @@ export default function App() {
         if (error) {
             showToast(`Nəticəni yadda saxlayarkən xəta: ${error.message}`);
         } else {
+            await checkAndAwardAchievements(newResult);
             setQuizResults(prev => [newResult, ...prev]);
             setLastResult(newResult);
             navigate(`/quiz/${quiz.id}/result`);
@@ -700,14 +749,14 @@ export default function App() {
     };
 
     const handleReviewRequest = (result) => {
-        if (profile?.role !== 'admin') {
-            showToast('Bu əməliyyat üçün admin hüququ tələb olunur.');
-            return;
-        }
-        if (result.status === 'pending_review') {
-            navigate(`/manual-review/${result.id}`);
+        if (profile?.role === 'admin' || result.user_id === profile?.id) {
+            if (result.status === 'pending_review' && profile?.role === 'admin') {
+                navigate(`/manual-review/${result.id}`);
+            } else {
+                navigate(`/review/${result.id}`);
+            }
         } else {
-            navigate(`/review/${result.id}`);
+            showToast('Bu nəticəyə baxmaq üçün icazəniz yoxdur.');
         }
     };
 
@@ -785,8 +834,8 @@ export default function App() {
                                                 <Button onClick={handleQuestionBankRequest} variant="secondary"><LibraryIcon /><span className="hidden md:inline ml-2">Suallar Bankı</span></Button>
                                             </div>
                                         )}
-                                        <Link to="/profile" className="text-sm text-gray-600 hidden sm:inline hover:underline ml-2">
-                                            {profile?.first_name || session.user.email} {profile?.last_name}
+                                        <Link to="/profile">
+                                            <Button variant="secondary"><UserCircleIcon /><span className="hidden sm:inline ml-2">Profil</span></Button>
                                         </Link>
                                         <Button onClick={handleSignOut} variant="danger"><LogoutIcon /></Button>
                                     </div>
@@ -800,7 +849,7 @@ export default function App() {
                                     <Route path="/question-bank" element={<QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} />} />
                                     <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                     <Route path="/manual-review/:resultId" element={<ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} />} />
-                                    <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} />} />
+                                    <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} />} />
                                     <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} />} />
                                     <Route path="/quiz/:id/edit" element={<QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft }} />} />
                                     <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz }} />} />
