@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon, TrashIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon, TrashIcon, ChatBubbleLeftRightIcon, PaperAirplaneIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -48,8 +48,8 @@ const CommentsSection = ({ questionId, profile, fetchComments, postComment, dele
 
     return (
         <div className="mt-4 pt-4 pl-8 border-t border-gray-300/70">
-            <h4 className="font-semibold text-gray-700 mb-2">Müzakirə</h4>
-            <div className="space-y-3">
+            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><ChatBubbleLeftRightIcon /> Müzakirə</h4>
+            <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                 {loading ? <p>Yüklənir...</p> : comments.map(comment => (
                     <div key={comment.id} className="text-sm">
                         <div className="flex justify-between items-center">
@@ -72,7 +72,7 @@ const CommentsSection = ({ questionId, profile, fetchComments, postComment, dele
                     placeholder="Şərhinizi yazın..."
                     className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
                 />
-                <Button type="submit">Göndər</Button>
+                <Button type="submit" size="sm" disabled={loading}><PaperAirplaneIcon /></Button>
             </form>
         </div>
     );
@@ -99,7 +99,7 @@ const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment,
                  <h1 className="text-xl sm:text-2xl font-bold text-orange-600">
                     Cavabların təhlili: {quiz.title}
                 </h1>
-                <Link to={`/student/${result.userName.toLowerCase()}-${result.userSurname.toLowerCase()}`}>
+                <Link to={`/student/${result.user_id}`}>
                     <Button variant="secondary"><ArrowLeftIcon /> Tələbənin hesabatına qayıt</Button>
                 </Link>
             </div>

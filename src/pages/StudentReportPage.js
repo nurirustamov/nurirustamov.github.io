@@ -16,13 +16,13 @@ const formatDate = (dateString) => {
 };
 
 const StudentReportPage = ({ results, onReviewResult }) => {
-    const { studentSlug } = useParams();
+    const { userId } = useParams(); // Используем userId вместо studentSlug
 
     const studentResults = useMemo(() => {
         return results
-            .filter(r => `${r.userName}-${r.userSurname}`.toLowerCase() === studentSlug)
+            .filter(r => r.user_id === userId) // Фильтруем по уникальному user_id
             .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    }, [results, studentSlug]);
+    }, [results, userId]);
 
     const studentName = studentResults.length > 0 ? `${studentResults[0].userName} ${studentResults[0].userSurname}` : '';
 

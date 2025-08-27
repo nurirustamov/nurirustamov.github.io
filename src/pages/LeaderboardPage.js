@@ -9,12 +9,12 @@ const LeaderboardList = ({ users, title }) => (
         {users.length > 0 ? (
             <ol className="space-y-3">
                 {users.map((user, index) => (
-                    <li key={user.user_id || user.userName} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                    <li key={user.user_id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
                         <div className="flex items-center gap-4">
                             <span className="text-lg font-bold text-gray-400 w-6 text-center">{index + 1}</span>
                             <span className="flex items-center gap-2">
                                 {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="text-gray-400" />}
-                                <Link to={`/student/${user.userName}-${user.userSurname}`.toLowerCase()} className="font-semibold text-gray-800 hover:underline">
+                                <Link to={`/student/${user.user_id}`} className="font-semibold text-gray-800 hover:underline">
                                     {user.userName} {user.userSurname}
                                 </Link>
                             </span>
@@ -35,9 +35,12 @@ const LeaderboardPage = ({ results }) => {
     const leaderboardData = useMemo(() => {
         const processResults = (filteredResults) => {
             const userScores = filteredResults.reduce((acc, result) => {
-                const key = `${result.userName}-${result.userSurname}`;
+                if (!result.user_id) return acc; // Пропускаем результаты без user_id
+                
+                const key = result.user_id;
                 if (!acc[key]) {
                     acc[key] = { 
+                        user_id: result.user_id,
                         totalScore: 0, 
                         userName: result.userName, 
                         userSurname: result.userSurname 

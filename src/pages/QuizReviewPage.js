@@ -63,7 +63,7 @@ const CommentsSection = ({ questionId, profile }) => {
             <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                 {comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="text-sm">
-                        <span className="font-bold text-gray-700">{comment.profiles.first_name || 'Anonim'} {comment.profiles.last_name}: </span>
+                        <span className="font-bold text-gray-700">{ (comment.profiles && `${comment.profiles.first_name || ''} ${comment.profiles.last_name || ''}`.trim()) || 'Anonim' }: </span>
                         <span>{comment.content}</span>
                     </div>
                 )) : <p className="text-sm text-gray-500">Hələ heç bir şərh yoxdur.</p>}

@@ -127,13 +127,13 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
 
     return (
         <div className="animate-fade-in">
-            <Card className="mb-8 !p-4 bg-gray-50 border border-gray-200">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <Card className="mb-8 !p-4 sm:!p-6 bg-gray-50 border border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="relative flex-grow w-full">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3"><SearchIcon /></span>
                         <input type="text" placeholder="Adına və ya təsvirinə görə axtarış..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition" />
                     </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                         {!showArchived && (
                             <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="py-2 px-4 border-2 border-gray-200 rounded-lg bg-white w-full sm:w-auto">
                                 {categories.map(cat => (
@@ -149,9 +149,9 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                             <option value="questions_desc">Çox sual</option>
                             <option value="questions_asc">Az sual</option>
                         </select>
-                        <Button onClick={onStartSmartPractice} variant="primary" className="w-full sm:w-auto"><LightbulbIcon /><span className="hidden sm:inline ml-2">Ağıllı Məşq</span></Button>
-                        {isAdmin && <Button onClick={() => setShowArchived(!showArchived)} variant="secondary" className="w-full sm:w-auto">{showArchived ? 'Aktiv Testlər' : 'Arxiv'}</Button>}
-                        {isAdmin && <Button onClick={onAddNewQuiz} className="w-full sm:w-auto"><PlusIcon /><span className="sm:hidden md:inline">Test yarat</span></Button>}
+                        <Button onClick={onStartSmartPractice} variant="primary" className="w-full sm:w-auto"><LightbulbIcon /><span className="hidden md:inline ml-2">Ağıllı Məşq</span></Button>
+                        {isAdmin && <Button onClick={() => setShowArchived(!showArchived)} variant="secondary" className="w-full sm:w-auto"><span className="sm:hidden">Arxiv</span><span className="hidden sm:inline">{showArchived ? 'Aktiv Testlər' : 'Arxiv'}</span></Button>}
+                        {isAdmin && <Button onClick={onAddNewQuiz} className="w-full sm:w-auto"><PlusIcon /><span className="hidden md:inline ml-2">Test yarat</span></Button>}
                     </div>
                 </div>
             </Card>
@@ -163,7 +163,7 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                     </p>
                 </Card>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {sortedAndFilteredQuizzes.map(quiz => (
                         <QuizCard 
                             key={quiz.id} 

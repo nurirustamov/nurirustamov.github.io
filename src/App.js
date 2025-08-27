@@ -334,12 +334,18 @@ export default function App() {
         }
 
         const quiz = quizzes.find(q => q.id === quizId);
-        if (quiz.attempt_limit > 0) {
-            const { data, error } = await supabase.from('quiz_results').select('id', { count: 'exact' }).eq('user_id', session.user.id).eq('quizId', quizId);
+        if (quiz && quiz.attempt_limit > 0) {
+            const { data, error } = await supabase
+                .from('quiz_results')
+                .select('id', { count: 'exact' })
+                .eq('user_id', session.user.id)
+                .eq('quizId', quizId);
+
             if (error) {
-                showToast('Cəhdlərin sayı yoxlanarkən xəta baş verdi.');
+                showToast('Cəhdləri yoxlayarkən xəta baş verdi.');
                 return;
             }
+
             if (data.length >= quiz.attempt_limit) {
                 showToast('Bu test üçün cəhd limitiniz bitib.');
                 return;
@@ -637,11 +643,10 @@ export default function App() {
             </header>
             <main className="container mx-auto px-4 py-6 md:py-8">
                 <Routes>
-                    <Route path="/auth" element={<AuthPage showToast={showToast} />} />
                     <Route path="/" element={<QuizListPageWrapper />} />
-                    <Route path="/leaderboard" element={<LeaderboardPage results={quizResults} />} />
+                    <Route path="/leaderboard" element={<LeaderboardPageWrapper />} />
                     <Route path="/stats" element={<StatisticsPageWrapper />} />
-                    <Route path="/student/:studentSlug" element={<StudentReportPageWrapper />} />
+                    <Route path="/student/:userId" element={<StudentReportPageWrapper />} />
                     <Route path="/question-bank" element={<QuestionBankPageWrapper />} />
                     <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper />} />
                     <Route path="/manual-review/:resultId" element={<ManualReviewPageWrapper />} />
@@ -682,8 +687,9 @@ export default function App() {
             isAdmin={profile?.role === 'admin'}
         />;
     }
+    const LeaderboardPageWrapper = () => <LeaderboardPage results={quizResults} />;
     const StatisticsPageWrapper = () => <StatisticsPage results={quizResults} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={handleReviewRequest} />;
-    const StudentReportPageWrapper = () => <StudentReportPage results={quizResults} onBack={() => navigate('/stats')} onReviewResult={handleReviewRequest} />;
+    const StudentReportPageWrapper = () => <StudentReportPage results={quizResults} onReviewResult={handleReviewRequest} />;
     const QuestionBankPageWrapper = () => <QuestionBankPage questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} />;
     
     const PastQuizReviewPageWrapper = () => {

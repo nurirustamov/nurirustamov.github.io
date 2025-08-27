@@ -19,6 +19,8 @@ const formatDate = (dateString) => {
 
 const isAnswerCorrect = (question, userAnswer) => {
     if (userAnswer === undefined || userAnswer === null) return false;
+    if (!question || !question.type) return false;
+
     switch (question.type) {
         case 'single': return userAnswer === question.options[question.correctAnswers[0]];
         case 'multiple':
@@ -41,7 +43,7 @@ const StudentListModal = ({ isOpen, onClose, students, title }) => {
                 <ul className="divide-y divide-gray-200">
                     {students.map(student => (
                         <li key={student.id} className="py-3 flex justify-between items-center">
-                            <Link to={`/student/${student.userName}-${student.userSurname}`.toLowerCase()} className="text-blue-600 hover:underline">
+                            <Link to={`/student/${student.user_id}`} className="text-blue-600 hover:underline">
                                 {student.userName} {student.userSurname}
                             </Link>
                             <span className="text-gray-600">{student.percentage}% ({student.quizTitle})</span>
@@ -58,7 +60,7 @@ const QuestionAnalysisModal = ({ isOpen, onClose, question, results, quizzes }) 
         if (!question) return null;
         const quiz = quizzes.find(q => q.title === question.quizTitle);
         if (!quiz) return null;
-        const fullQuestion = quiz.questions.find(q => q.text === question.text);
+        const fullQuestion = (quiz.questions || []).find(q => q.text === question.text);
         if (!fullQuestion || !['single', 'multiple'].includes(fullQuestion.type)) return null;
 
         const answerCounts = fullQuestion.options.reduce((acc, option) => ({ ...acc, [option]: 0 }), {});
@@ -120,8 +122,8 @@ const PaginatedLeaderboard = ({ leaderboardData }) => {
                             {topStudents.map((student, index) => (
                                 <li key={student.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-gray-100">
                                     <span className="flex items-center gap-2">
-                                        {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="text-gray-300" />}
-                                        <Link to={`/student/${student.userName}-${student.userSurname}`.toLowerCase()} className="hover:underline">{student.userName} {student.userSurname}</Link>
+                                        {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="text-gray-400" />}
+                                        <Link to={`/student/${student.user_id}`} className="hover:underline">{student.userName} {student.userSurname}</Link>
                                     </span>
                                     <span className="font-bold text-gray-800">{student.score} bal</span>
                                 </li>
@@ -192,7 +194,7 @@ const ResultsTable = ({ results, onReviewResult, onSort, sortBy, sortDirection }
                         {paginatedResults.map((result) => (
                             <tr key={result.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(result.created_at)}</td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><Link to={`/student/${result.userName}-${result.userSurname}`.toLowerCase()} className="text-blue-600 hover:underline">{result.userName} {result.userSurname}</Link></td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><Link to={`/student/${result.user_id}`} className="text-blue-600 hover:underline">{result.userName} {result.userSurname}</Link></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{result.quizTitle}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500"><div className="flex flex-col"><span className="font-bold">{result.score} / {result.totalPoints} bal</span><span className="text-xs text-gray-400">{result.percentage}%</span></div></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${result.status === 'pending_review' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{result.status === 'pending_review' ? <ClockIcon className="w-4 h-4 mr-1.5" /> : <CheckIcon className="w-4 h-4 mr-1.5" />} {result.status === 'pending_review' ? 'Yoxlanılır' : 'Tamamlanıb'}</span></td>
@@ -264,7 +266,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         const data = completedResults;
         if (data.length === 0) return null;
         const totalCompletions = data.length;
-        const uniqueStudents = new Set(data.map(r => `${r.userName} ${r.userSurname}`)).size;
+        const uniqueStudents = new Set(data.map(r => r.user_id)).size;
         const averageScore = data.reduce((acc, r) => acc + r.percentage, 0) / totalCompletions;
         const scoreDistribution = {
             perfect: data.filter(r => r.percentage >= 90).length,
@@ -275,7 +277,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         const difficultQuestions = {};
         data.forEach(result => {
             const quiz = quizzes.find(q => q.id === result.quizId);
-            if (!quiz) return;
+            if (!quiz || !quiz.questions) return;
             result.questionOrder.forEach(q => {
                 const originalQuestion = quiz.questions.find(oq => oq.id === q.id);
                 if (originalQuestion && !isAnswerCorrect(originalQuestion, result.userAnswers[originalQuestion.id])) {
@@ -298,7 +300,8 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         return Object.entries(resultsByQuiz).map(([quizTitle, quizResults]) => {
             const bestScores = {};
             quizResults.forEach(result => {
-                const studentIdentifier = `${result.userName} ${result.userSurname}`;
+                if (!result.user_id) return;
+                const studentIdentifier = result.user_id;
                 if (!bestScores[studentIdentifier] || result.score > bestScores[studentIdentifier].score) {
                     bestScores[studentIdentifier] = result;
                 }
