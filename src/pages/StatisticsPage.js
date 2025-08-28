@@ -60,7 +60,7 @@ const QuestionAnalysisModal = ({ isOpen, onClose, question, results, quizzes }) 
         if (!question) return null;
         const quiz = quizzes.find(q => q.title === question.quizTitle);
         if (!quiz) return null;
-        const fullQuestion = (quiz.questions || []).find(q => q.text === question.text);
+        const fullQuestion = quiz.questions.find(q => q.text === question.text);
         if (!fullQuestion || !['single', 'multiple'].includes(fullQuestion.type)) return null;
 
         const answerCounts = fullQuestion.options.reduce((acc, option) => ({ ...acc, [option]: 0 }), {});
@@ -117,12 +117,14 @@ const PaginatedLeaderboard = ({ leaderboardData }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {currentLeaderboards.map(({ quizTitle, topStudents }) => (
                     <div key={quizTitle} className="border rounded-lg p-4 bg-gray-50">
-                        <h4 className="font-semibold text-center mb-3 text-gray-700 truncate">{quizTitle}</h4>
+                        <h4 className="font-semibold text-center mb-3 text-gray-700 truncate">
+                            <Link to={`/stats/quiz/${topStudents[0].quizId}`} className="hover:underline">{quizTitle}</Link>
+                        </h4>
                         <ol className="space-y-2">
                             {topStudents.map((student, index) => (
                                 <li key={student.id} className="flex items-center justify-between text-sm p-1 rounded-md hover:bg-gray-100">
                                     <span className="flex items-center gap-2">
-                                        {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="text-gray-400" />}
+                                        {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="text-gray-300" />}
                                         <Link to={`/student/${student.user_id}`} className="hover:underline">{student.userName} {student.userSurname}</Link>
                                     </span>
                                     <span className="font-bold text-gray-800">{student.score} bal</span>
@@ -195,7 +197,7 @@ const ResultsTable = ({ results, onReviewResult, onSort, sortBy, sortDirection }
                             <tr key={result.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(result.created_at)}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><Link to={`/student/${result.user_id}`} className="text-blue-600 hover:underline">{result.userName} {result.userSurname}</Link></td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{result.quizTitle}</td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900"><Link to={`/stats/quiz/${result.quizId}`} className="text-blue-600 hover:underline">{result.quizTitle}</Link></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500"><div className="flex flex-col"><span className="font-bold">{result.score} / {result.totalPoints} bal</span><span className="text-xs text-gray-400">{result.percentage}%</span></div></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${result.status === 'pending_review' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{result.status === 'pending_review' ? <ClockIcon className="w-4 h-4 mr-1.5" /> : <CheckIcon className="w-4 h-4 mr-1.5" />} {result.status === 'pending_review' ? 'Yoxlanılır' : 'Tamamlanıb'}</span></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium"><Button onClick={() => onReviewResult(result)} variant={result.status === 'pending_review' ? 'primary' : 'secondary'} size="sm">{result.status === 'pending_review' ? <ClipboardCheckIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}<span className="ml-1">{result.status === 'pending_review' ? 'Yoxla' : 'Bax'}</span></Button></td>
@@ -266,7 +268,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         const data = completedResults;
         if (data.length === 0) return null;
         const totalCompletions = data.length;
-        const uniqueStudents = new Set(data.map(r => r.user_id)).size;
+        const uniqueStudents = new Set(data.map(r => `${r.userName} ${r.userSurname}`)).size;
         const averageScore = data.reduce((acc, r) => acc + r.percentage, 0) / totalCompletions;
         const scoreDistribution = {
             perfect: data.filter(r => r.percentage >= 90).length,
@@ -277,7 +279,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         const difficultQuestions = {};
         data.forEach(result => {
             const quiz = quizzes.find(q => q.id === result.quizId);
-            if (!quiz || !quiz.questions) return;
+            if (!quiz) return;
             result.questionOrder.forEach(q => {
                 const originalQuestion = quiz.questions.find(oq => oq.id === q.id);
                 if (originalQuestion && !isAnswerCorrect(originalQuestion, result.userAnswers[originalQuestion.id])) {
@@ -300,8 +302,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
         return Object.entries(resultsByQuiz).map(([quizTitle, quizResults]) => {
             const bestScores = {};
             quizResults.forEach(result => {
-                if (!result.user_id) return;
-                const studentIdentifier = result.user_id;
+                const studentIdentifier = `${result.userName} ${result.userSurname}`;
                 if (!bestScores[studentIdentifier] || result.score > bestScores[studentIdentifier].score) {
                     bestScores[studentIdentifier] = result;
                 }
@@ -375,43 +376,59 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
     }
 
     return (
-        <div className="animate-fade-in space-y-6">
-            <StudentListModal isOpen={studentListModal.isOpen} onClose={() => setStudentListModal({ isOpen: false, students: [], title: '' })} students={studentListModal.students} title={studentListModal.title} />
-            <QuestionAnalysisModal isOpen={!!analyzingQuestion} onClose={() => setAnalyzingQuestion(null)} question={analyzingQuestion} results={results} quizzes={quizzes} />
-            <div className="flex flex-col sm:flex-row justify-between items-center">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Statistika Paneli</h1>
-                    {selectedQuizFilter !== 'all' && <p className="text-lg text-orange-600 font-semibold">{selectedQuizFilter}</p>}
-                </div>
-                <Button onClick={onBack} variant="secondary"><ArrowLeftIcon /> <span className="hidden sm:inline">Geri</span></Button>
-            </div>
+        <div className="animate-fade-in">
+            <div className="grid lg:grid-cols-4 gap-8 items-start">
 
-            <Card className="p-4 sm:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" placeholder="Ada görə axtarış..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500 lg:col-span-1" />
-                    <select value={selectedQuizFilter} onChange={e => setSelectedQuizFilter(e.target.value)} className="p-2 border border-gray-300 rounded-md bg-white focus:ring-orange-500 focus:border-orange-500 lg:col-span-1">
-                        {uniqueQuizTitles.map(title => <option key={title} value={title}>{title === 'all' ? 'Bütün Testlər' : title}</option>)}
-                    </select>
-                    <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-                         <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))} className="p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" />
-                         <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))} className="p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" />
+                {/* --- Left Column: Filters Panel --- */}
+                <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Statistika</h1>
+                        <Button onClick={onBack} variant="secondary" className="w-full justify-center"><ArrowLeftIcon /> Geri</Button>
                     </div>
+                    <Card>
+                        <h3 className="font-bold text-gray-800 mb-3">Filtrlər</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Ada görə axtarış</label>
+                                <input type="text" placeholder="Tələbə axtar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Testə görə filtr</label>
+                                <select value={selectedQuizFilter} onChange={e => setSelectedQuizFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white focus:ring-orange-500 focus:border-orange-500">
+                                    {uniqueQuizTitles.map(title => <option key={title} value={title}>{title === 'all' ? 'Bütün Testlər' : title}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tarix aralığı</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))} className="p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" />
+                                    <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))} className="p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6 border-t pt-4">
+                            <Button onClick={handleExportCSV} variant="secondary" className="w-full justify-center" disabled={filteredResults.length === 0}><DownloadIcon /> CSV ixrac et</Button>
+                        </div>
+                    </Card>
                 </div>
-                 <div className="flex justify-end mt-4">
-                    <Button onClick={handleExportCSV} variant="secondary" disabled={filteredResults.length === 0}><DownloadIcon /> <span className="hidden sm:inline">CSV ixrac et</span></Button>
-                </div>
-            </Card>
 
-            <div>
-                <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                        <button onClick={() => setActiveTab('overview')} className={`${activeTab === 'overview' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Ümumi Baxış</button>
-                        <button onClick={() => setActiveTab('pending')} className={`${activeTab === 'pending' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Gözləyən Yoxlamalar ({pendingResults.length})</button>
-                        <button onClick={() => setActiveTab('completed')} className={`${activeTab === 'completed' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Tamamlanmış Nəticələr ({completedResults.length})</button>
-                    </nav>
-                </div>
-                <div className="pt-6">
-                    {renderContent()}
+                {/* --- Right Column: Main Content --- */}
+                <div className="lg:col-span-3 space-y-6">
+                    <StudentListModal isOpen={studentListModal.isOpen} onClose={() => setStudentListModal({ isOpen: false, students: [], title: '' })} students={studentListModal.students} title={studentListModal.title} />
+                    <QuestionAnalysisModal isOpen={!!analyzingQuestion} onClose={() => setAnalyzingQuestion(null)} question={analyzingQuestion} results={results} quizzes={quizzes} />
+
+                    <div>
+                        <div className="border-b border-gray-200">
+                            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                                <button onClick={() => setActiveTab('overview')} className={`${activeTab === 'overview' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Ümumi Baxış</button>
+                                <button onClick={() => setActiveTab('pending')} className={`${activeTab === 'pending' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Gözləyən Yoxlamalar ({pendingResults.length})</button>
+                                <button onClick={() => setActiveTab('completed')} className={`${activeTab === 'completed' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>Tamamlanmış Nəticələr ({completedResults.length})</button>
+                            </nav>
+                        </div>
+                        <div className="pt-6">
+                            {renderContent()}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
