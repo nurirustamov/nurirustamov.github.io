@@ -3,16 +3,26 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import QuestionEditor from '../components/QuestionEditor';
-import { PlusIcon, EditIcon, TrashIcon, SearchIcon } from '../assets/icons';
+import { PlusIcon, EditIcon, TrashIcon, SearchIcon, TagIcon } from '../assets/icons';
 
 const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
     const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
     const [questionToEdit, setQuestionToEdit] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTag, setSelectedTag] = useState('all');
+
+    const uniqueTags = useMemo(() => {
+        const allTags = new Set();
+        questionBank.forEach(q => {
+            if (q.tags && Array.isArray(q.tags)) {
+                q.tags.forEach(tag => allTags.add(tag));
+            }
+        });
+        return ['all', ...Array.from(allTags).sort()];
+    }, [questionBank]);
 
     const handleAddNewQuestion = () => {
         const newQuestion = {
-            // ID будет присвоен базой данных, его отсутствие - признак нового вопроса
             text: '',
             type: 'single',
             options: ['', ''],
@@ -21,7 +31,8 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
             orderItems: ['', ''],
             imageUrl: '',
             explanation: '',
-            points: 1
+            points: 1,
+            tags: []
         };
         setQuestionToEdit(newQuestion);
         setIsEditorModalOpen(true);
@@ -37,22 +48,24 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
             showToast("Sualın mətni boş ola bilməz!");
             return;
         }
-        onSave(question); // Вызываем функцию из App.js, которая работает с Supabase
+        onSave(question);
         setIsEditorModalOpen(false);
         setQuestionToEdit(null);
     };
 
     const handleDeleteWithConfirmation = (questionId) => {
         if (window.confirm("Bu sualı bankdan silmək istədiyinizə əminsiniz?")) {
-            onDelete(questionId); // Вызываем функцию из App.js
+            onDelete(questionId);
         }
     };
 
     const filteredQuestions = useMemo(() => {
-        return questionBank.filter(q => 
-            q.text.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [questionBank, searchTerm]);
+        return questionBank.filter(q => {
+            const searchTermMatch = q.text.toLowerCase().includes(searchTerm.toLowerCase());
+            const tagMatch = selectedTag === 'all' || (q.tags && q.tags.includes(selectedTag));
+            return searchTermMatch && tagMatch;
+        });
+    }, [questionBank, searchTerm, selectedTag]);
 
     return (
         <div className="animate-fade-in space-y-6">
@@ -62,15 +75,28 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
             </div>
 
             <Card>
-                <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3"><SearchIcon /></span>
-                    <input 
-                        type="text" 
-                        placeholder="Sualın mətninə görə axtarış..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition"
-                    />
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-grow">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3"><SearchIcon /></span>
+                        <input 
+                            type="text" 
+                            placeholder="Sualın mətninə görə axtarış..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition"
+                        />
+                    </div>
+                    <div className="relative flex-shrink-0">
+                         <span className="absolute inset-y-0 left-0 flex items-center pl-3"><TagIcon /></span>
+                        <select 
+                            value={selectedTag} 
+                            onChange={e => setSelectedTag(e.target.value)} 
+                            className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full bg-white focus:ring-orange-400 focus:border-orange-400 transition appearance-none">
+                            {uniqueTags.map(tag => (
+                                <option key={tag} value={tag}>{tag === 'all' ? 'Bütün Teqlər' : tag}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </Card>
 
@@ -80,7 +106,12 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
                         <Card key={question.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                             <div className="flex-1">
                                 <p className="font-semibold text-gray-800">{question.text}</p>
-                                <p className="text-sm text-gray-500">Növ: {question.type} | Bal: {question.points || 1}</p>
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    <span className="text-sm text-gray-500">Növ: {question.type} | Bal: {question.points || 1}</span>
+                                    {(question.tags || []).map(tag => (
+                                        <span key={tag} className="text-xs font-medium bg-orange-100 text-orange-800 px-2 py-1 rounded-full">{tag}</span>
+                                    ))}
+                                </div>
                             </div>
                             <div className="flex gap-2 self-end sm:self-center">
                                 <Button onClick={() => handleEditQuestion(question)} variant="secondary"><EditIcon /></Button>
@@ -90,7 +121,7 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
                     ))
                 ) : (
                     <Card className="text-center py-12">
-                        <p className="text-gray-500">Bankda heç bir sual tapılmadı. İlk sualınızı yaradın!</p>
+                        <p className="text-gray-500">Filtrlərə uyğun sual tapılmadı.</p>
                     </Card>
                 )}
             </div>
@@ -101,7 +132,6 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
                         question={questionToEdit}
                         index={0} 
                         onUpdate={setQuestionToEdit} 
-                        isBankEditor={true}
                     />
                     <div className="flex justify-end mt-6">
                         <Button onClick={() => handleSaveQuestion(questionToEdit)}>Yadda Saxla</Button>

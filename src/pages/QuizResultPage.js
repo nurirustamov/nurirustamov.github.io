@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { ArrowLeftIcon, EyeIcon, TrophyIcon, ClockIcon } from '../assets/icons';
+import { supabase } from '../supabaseClient';
 
-const QuizResultPage = ({ lastResult, allResultsForThisQuiz, onBack, onReview }) => {
+const QuizResultPage = ({ lastResult, onBack, onReview }) => {
     const {
         score,
         totalPoints,
@@ -12,17 +13,42 @@ const QuizResultPage = ({ lastResult, allResultsForThisQuiz, onBack, onReview })
         userName,
         userSurname,
         id: resultId,
+        quizId,
         status
     } = lastResult;
 
+    const [leaderboard, setLeaderboard] = useState({ rank: 0, totalParticipants: 0, isLoading: true });
+
     const percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
 
-    const { rank, totalParticipants } = useMemo(() => {
-        if (status === 'pending_review') return { rank: 0, totalParticipants: 0 };
-        const sortedResults = [...allResultsForThisQuiz].sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
-        const rank = sortedResults.findIndex(r => r.id === resultId) + 1;
-        return { rank, totalParticipants: allResultsForThisQuiz.length };
-    }, [allResultsForThisQuiz, resultId, status]);
+    useEffect(() => {
+        if (status === 'pending_review' || !quizId) {
+            setLeaderboard({ rank: 0, totalParticipants: 0, isLoading: false });
+            return;
+        }
+
+        const fetchLeaderboard = async () => {
+            const { data: results, error } = await supabase
+                .from('quiz_results')
+                .select('id, score, created_at')
+                .eq('quizId', quizId)
+                .eq('status', 'completed');
+
+            if (error) {
+                console.error("Error fetching quiz leaderboard:", error);
+                setLeaderboard({ rank: 0, totalParticipants: 0, isLoading: false });
+                return;
+            }
+
+            const sortedResults = results.sort((a, b) => b.score - a.score || new Date(a.created_at) - new Date(b.created_at));
+            
+            const rank = sortedResults.findIndex(r => r.id === resultId) + 1;
+            
+            setLeaderboard({ rank, totalParticipants: sortedResults.length, isLoading: false });
+        };
+
+        fetchLeaderboard();
+    }, [quizId, resultId, status]);
 
     let message = '';
     let messageColor = 'text-gray-800';
@@ -75,11 +101,15 @@ const QuizResultPage = ({ lastResult, allResultsForThisQuiz, onBack, onReview })
                                 <span className="text-sm text-gray-500 mt-1">({correctAnswersCount} / {totalQuestions} düzgün)</span>
                             </div>
                         </div>
-                        {rank > 0 && totalParticipants > 0 && (
+                        {leaderboard.isLoading ? (
+                            <div className="h-10 flex items-center justify-center mb-8">
+                                <p className="text-gray-500">Reytinq hesablanır...</p>
+                            </div>
+                        ) : leaderboard.rank > 0 && leaderboard.totalParticipants > 0 && (
                             <div className="mb-8">
                                 <div className="inline-flex items-center bg-yellow-100 text-yellow-800 font-semibold px-4 py-2 rounded-full">
                                     <TrophyIcon className="w-6 h-6 mr-2" />
-                                    <span>Sizin bu test üzrə reytinqiniz: {totalParticipants} iştirakçı arasında <strong>{rank}-ci yer</strong></span>
+                                    <span>Sizin bu test üzrə reytinqiniz: {leaderboard.totalParticipants} iştirakçı arasında <strong>{leaderboard.rank}-ci yer</strong></span>
                                 </div>
                             </div>
                         )}

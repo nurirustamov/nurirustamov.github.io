@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -26,7 +26,6 @@ const isAnswerCorrect = (question, userAnswer) => {
 const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
     const navigate = useNavigate();
     
-    // Инициализируем состояние ответов, чтобы избежать ошибки uncontrolled/controlled
     const [answers, setAnswers] = useState(() => {
         const initialState = {};
         (quiz.questions || []).forEach(q => {
@@ -39,6 +38,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
 
     const [timeLeft, setTimeLeft] = useState((quiz.timeLimit || 10) * 60);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [isSubmitting, setIsSubmitting] = useState(false); // State to prevent double submission
 
     // --- Состояния для режима тренировки ---
     const [isAnswerChecked, setIsAnswerChecked] = useState(false);
@@ -60,17 +60,27 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
         return shuffled;
     }, [quizQuestions, quiz.shuffleOptions]);
 
+    const handleSubmitQuiz = useCallback(() => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        if (onSubmit) {
+            onSubmit(answers, quizQuestions);
+        }
+    }, [isSubmitting, onSubmit, answers, quizQuestions]);
+
     useEffect(() => {
-        if (isPracticeMode || timeLeft <= 0) {
-            if (timeLeft <= 0 && onSubmit) onSubmit(answers, quizQuestions);
+        if (isPracticeMode) return;
+
+        if (timeLeft <= 0) {
+            handleSubmitQuiz();
             return;
         }
         const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
         return () => clearInterval(timer);
-    }, [timeLeft, answers, onSubmit, quizQuestions, isPracticeMode]);
+    }, [timeLeft, isPracticeMode, handleSubmitQuiz]);
 
     const handleAnswerChange = (questionId, answer) => {
-        if (isPracticeMode && isAnswerChecked) return; // Нельзя менять ответ после проверки
+        if (isPracticeMode && isAnswerChecked) return;
         setAnswers(prev => ({ ...prev, [questionId]: answer }));
     };
 
@@ -135,19 +145,19 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                     {q.imageUrl && <img src={q.imageUrl} alt="Question illustration" className="my-4 rounded-lg max-h-60 w-full object-contain mx-auto" onError={(e) => e.target.style.display = 'none'} />}
                     
                     {q.type === 'single' && optionsForCurrentQuestion.map((option, optIndex) => (
-                        <div key={optIndex} className="mb-2"><label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer border-2 ${getOptionClassName(option, optIndex)}`}><input type="radio" name={q.id} value={option} checked={answers[q.id] === option} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} />{option}</label></div>
+                        <div key={optIndex} className="mb-2"><label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer border-2 ${getOptionClassName(option, optIndex)}`}><input type="radio" name={q.id} value={option} checked={answers[q.id] === option} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} />{option}</label></div>
                     ))}
                     {q.type === 'multiple' && optionsForCurrentQuestion.map((option, optIndex) => (
-                        <div key={optIndex} className="mb-2"><label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer border-2 ${getOptionClassName(option, optIndex)}`}><input type="checkbox" name={q.id} value={option} checked={answers[q.id]?.includes(option)} onChange={(e) => { const curr = answers[q.id] || []; const next = e.target.checked ? [...curr, e.target.value] : curr.filter(a => a !== e.target.value); handleAnswerChange(q.id, next); }} className="mr-3 h-4 w-4 text-orange-600 rounded focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} />{option}</label></div>
+                        <div key={optIndex} className="mb-2"><label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer border-2 ${getOptionClassName(option, optIndex)}`}><input type="checkbox" name={q.id} value={option} checked={answers[q.id]?.includes(option)} onChange={(e) => { const curr = answers[q.id] || []; const next = e.target.checked ? [...curr, e.target.value] : curr.filter(a => a !== e.target.value); handleAnswerChange(q.id, next); }} className="mr-3 h-4 w-4 text-orange-600 rounded focus:ring-orange-500" disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} />{option}</label></div>
                     ))}
-                    {q.type === 'textInput' && <input type="text" value={answers[q.id]} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className={`mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3 ${isPracticeMode && isAnswerChecked ? (isAnswerCorrect(q, answers[q.id]) ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500') : ''}`} placeholder="Cavabınızı daxil edin..." disabled={isPracticeMode && isAnswerChecked} />}
+                    {q.type === 'textInput' && <input type="text" value={answers[q.id]} onChange={(e) => handleAnswerChange(q.id, e.target.value)} className={`mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3 ${isPracticeMode && isAnswerChecked ? (isAnswerCorrect(q, answers[q.id]) ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500') : ''}`} placeholder="Cavabınızı daxil edin..." disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} />}
                     {q.type === 'trueFalse' && (
                         <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                            <label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer flex-1 text-center border-2 ${isPracticeMode && isAnswerChecked && q.correctAnswer === true ? 'border-green-500 bg-green-100' : (isPracticeMode && isAnswerChecked && answers[q.id] === true ? 'border-red-500 bg-red-100' : 'border-transparent')}`}><input type="radio" name={q.id} checked={answers[q.id] === true} onChange={() => handleAnswerChange(q.id, true)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} /> Doğru</label>
-                            <label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer flex-1 text-center border-2 ${isPracticeMode && isAnswerChecked && q.correctAnswer === false ? 'border-green-500 bg-green-100' : (isPracticeMode && isAnswerChecked && answers[q.id] === false ? 'border-red-500 bg-red-100' : 'border-transparent')}`}><input type="radio" name={q.id} checked={answers[q.id] === false} onChange={() => handleAnswerChange(q.id, false)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={isPracticeMode && isAnswerChecked} /> Yanlış</label>
+                            <label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer flex-1 text-center border-2 ${isPracticeMode && isAnswerChecked && q.correctAnswer === true ? 'border-green-500 bg-green-100' : (isPracticeMode && isAnswerChecked && answers[q.id] === true ? 'border-red-500 bg-red-100' : 'border-transparent')}`}><input type="radio" name={q.id} checked={answers[q.id] === true} onChange={() => handleAnswerChange(q.id, true)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} /> Doğru</label>
+                            <label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer flex-1 text-center border-2 ${isPracticeMode && isAnswerChecked && q.correctAnswer === false ? 'border-green-500 bg-green-100' : (isPracticeMode && isAnswerChecked && answers[q.id] === false ? 'border-red-500 bg-red-100' : 'border-transparent')}`}><input type="radio" name={q.id} checked={answers[q.id] === false} onChange={() => handleAnswerChange(q.id, false)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} /> Yanlış</label>
                         </div>
                     )}
-                    {q.type === 'ordering' && <OrderingQuestion question={q} onAnswer={(orderedItems) => handleAnswerChange(q.id, orderedItems)} disabled={isPracticeMode && isAnswerChecked} />}
+                    {q.type === 'ordering' && <OrderingQuestion question={q} onAnswer={(orderedItems) => handleAnswerChange(q.id, orderedItems)} disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} />}
                     {q.type === 'open' && (
                         <textarea
                             value={answers[q.id]}
@@ -155,7 +165,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                             className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm p-3"
                             placeholder="Cavabınızı bura daxil edin..."
                             rows="5"
-                            disabled={isPracticeMode && isAnswerChecked}
+                            disabled={(isPracticeMode && isAnswerChecked) || isSubmitting}
                         />
                     )}
                 </div>
@@ -173,7 +183,7 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                 )}
 
                 <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    {!isPracticeMode && <Button onClick={() => setCurrentQuestionIndex(i => i - 1)} disabled={currentQuestionIndex === 0} variant="secondary" className="w-full sm:w-auto"><ArrowLeftIcon /> Geri</Button>}
+                    {!isPracticeMode && <Button onClick={() => setCurrentQuestionIndex(i => i - 1)} disabled={currentQuestionIndex === 0 || isSubmitting} variant="secondary" className="w-full sm:w-auto"><ArrowLeftIcon /> Geri</Button>}
                     <span className="text-gray-600 font-medium order-first sm:order-none">{currentQuestionIndex + 1} / {quizQuestions.length}</span>
                     {isPracticeMode ? (
                         isAnswerChecked ? (
@@ -187,9 +197,11 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                         )
                     ) : (
                         currentQuestionIndex < quizQuestions.length - 1 ? (
-                            <Button onClick={() => setCurrentQuestionIndex(i => i + 1)} className="w-full sm:w-auto">İrəli <ArrowRightIcon /></Button>
+                            <Button onClick={() => setCurrentQuestionIndex(i => i + 1)} disabled={isSubmitting} className="w-full sm:w-auto">İrəli <ArrowRightIcon /></Button>
                         ) : (
-                            <Button onClick={() => onSubmit(answers, quizQuestions)} className="w-full sm:w-auto"><CheckIcon /> Bitir</Button>
+                            <Button onClick={handleSubmitQuiz} disabled={isSubmitting} className="w-full sm:w-auto">
+                                {isSubmitting ? 'Göndərilir...' : <><CheckIcon /> Bitir</>}
+                            </Button>
                         )
                     )}
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, UploadIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon, LockClosedIcon } from '../assets/icons';
+import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, EyeIcon, EyeOffIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon, LockClosedIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -28,7 +28,7 @@ const getQuizStatus = (quiz) => {
     return { text: 'Aktiv', color: 'green', active: true };
 };
 
-const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest, onDeleteRequest, isAdmin }) => {
+const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest, onDeleteRequest, isAdmin, onToggleStatus }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
@@ -52,11 +52,16 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
             <div className="flex-grow">
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-2">
                     <h2 className="text-xl font-bold text-gray-800 flex-1 pr-2 mb-2 sm:mb-0">{quiz.title}</h2>
-                    {quiz.isArchived ? (
-                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-600 bg-gray-200 px-2 py-1 rounded-full whitespace-nowrap">ARXİVDƏ</span>
-                    ) : (
-                        <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-1 rounded-full whitespace-nowrap">{quiz.category || 'Kateqoriyasız'}</span>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                         {isAdmin && !quiz.is_published && !quiz.isArchived && (
+                            <span className="text-xs font-semibold uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-1 rounded-full whitespace-nowrap">QARALAMA</span>
+                        )}
+                        {quiz.isArchived ? (
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-600 bg-gray-200 px-2 py-1 rounded-full whitespace-nowrap">ARXİVDƏ</span>
+                        ) : (
+                           quiz.is_published && <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-1 rounded-full whitespace-nowrap">{quiz.category || 'Kateqoriyasız'}</span>
+                        )}
+                    </div>
                 </div>
                 <p className="text-gray-600 mb-4 h-12 overflow-hidden text-sm">{quiz.description}</p>
                 <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
@@ -81,12 +86,17 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
                 </div>
             </div>
             <div className="flex items-stretch gap-2 mt-auto">
-                <Button onClick={() => onStartQuiz(quiz.id)} className="flex-1" disabled={questions.length === 0 || quiz.isArchived || !status.active}><PlayIcon /> <span className="hidden sm:inline ml-1">Başla</span></Button>
+                <Button onClick={() => onStartQuiz(quiz.id)} className="flex-1" disabled={questions.length === 0 || quiz.isArchived || !status.active || !quiz.is_published}><PlayIcon /> <span className="hidden sm:inline ml-1">Başla</span></Button>
                 {isAdmin && (
                     <div className="relative" ref={menuRef}>
                         <Button onClick={() => setMenuOpen(!menuOpen)} variant="secondary" className="h-full"><DotsVerticalIcon /></Button>
                         {menuOpen && (
                             <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                <button onClick={() => { onToggleStatus(quiz.id, !quiz.is_published); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                    {quiz.is_published ? <EyeOffIcon /> : <EyeIcon />}
+                                    <span className="ml-2">{quiz.is_published ? 'Qaralamaya sal' : 'Dərc et'}</span>
+                                </button>
+                                <div className="border-t border-gray-100 my-1"></div>
                                 <button onClick={() => { onCloneQuiz(quiz.id); setMenuOpen(false); }} disabled={quiz.isArchived} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center disabled:opacity-50"><DuplicateIcon /> <span className="ml-2">Kopyala</span></button>
                                 <button onClick={() => { onEditQuiz(quiz.id); setMenuOpen(false); }} disabled={quiz.isArchived} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center disabled:opacity-50"><EditIcon /> <span className="ml-2">Redaktə et</span></button>
                                 <button onClick={() => { onArchiveRequest(quiz.id, !quiz.isArchived); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"><ArchiveIcon /> <span className="ml-2">{quiz.isArchived ? 'Arxivdən çıxar' : 'Arxivə sal'}</span></button>
@@ -101,22 +111,38 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
     );
 };
 
-const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, showArchived, setShowArchived, isAdmin }) => {
+const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date_desc');
     const [selectedCategory, setSelectedCategory] = useState('all');
+    const [viewMode, setViewMode] = useState('published'); // published, drafts, archived
 
-    const categories = useMemo(() => ['all', ...new Set(quizzes.filter(q => !q.isArchived).map(q => q.category || 'Kateqoriyasız'))], [quizzes]);
+    const categories = useMemo(() => {
+        const activeQuizzes = quizzes.filter(q => !q.isArchived);
+        return ['all', ...new Set(activeQuizzes.map(q => q.category || 'Kateqoriyasız'))];
+    }, [quizzes]);
 
     const sortedAndFilteredQuizzes = useMemo(() => {
         const term = searchTerm.toLowerCase();
+        
         return quizzes
-            .filter(quiz =>
-                (quiz.isArchived || false) === showArchived &&
-                (selectedCategory === 'all' || (quiz.category || 'Kateqoriyasız') === selectedCategory) &&
-                (quiz.title.toLowerCase().includes(term) ||
-                    (quiz.description && quiz.description.toLowerCase().includes(term)))
-            )
+            .filter(quiz => {
+                // Admin view filtering
+                if (isAdmin) {
+                    if (viewMode === 'published' && (quiz.isArchived || !quiz.is_published)) return false;
+                    if (viewMode === 'drafts' && (quiz.isArchived || quiz.is_published)) return false;
+                    if (viewMode === 'archived' && !quiz.isArchived) return false;
+                } else {
+                    // Regular user view: only published and not archived
+                    if (!quiz.is_published || quiz.isArchived) return false;
+                }
+
+                // Common filters
+                if (selectedCategory !== 'all' && (quiz.category || 'Kateqoriyasız') !== selectedCategory) return false;
+                if (term && !quiz.title.toLowerCase().includes(term) && !(quiz.description && quiz.description.toLowerCase().includes(term))) return false;
+
+                return true;
+            })
             .sort((a, b) => {
                 switch (sortBy) {
                     case 'title_asc': return a.title.localeCompare(b.title);
@@ -128,18 +154,28 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                     default: return b.id - a.id;
                 }
             });
-    }, [quizzes, searchTerm, sortBy, selectedCategory, showArchived]);
+    }, [quizzes, searchTerm, sortBy, selectedCategory, viewMode, isAdmin]);
+
+    const AdminTabs = () => (
+        <div className="border-b border-gray-200 mb-6">
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                <button onClick={() => setViewMode('published')} className={`${viewMode === 'published' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>Dərc Edilmiş</button>
+                <button onClick={() => setViewMode('drafts')} className={`${viewMode === 'drafts' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>Qaralamalar</button>
+                <button onClick={() => setViewMode('archived')} className={`${viewMode === 'archived' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>Arxiv</button>
+            </nav>
+        </div>
+    );
 
     return (
         <div className="animate-fade-in">
-            <Card className="mb-8 !p-4 bg-gray-50 border border-gray-200">
+            <Card className="mb-6 !p-4 bg-gray-50 border border-gray-200">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="relative flex-grow w-full">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3"><SearchIcon /></span>
                         <input type="text" placeholder="Adına və ya təsvirinə görə axtarış..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition" />
                     </div>
                     <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-                        {!showArchived && (
+                        {viewMode !== 'archived' && (
                             <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="py-2 px-4 border-2 border-gray-200 rounded-lg bg-white w-full sm:w-auto">
                                 {categories.map(cat => (
                                     <option key={cat} value={cat}>{cat === 'all' ? 'Bütün kateqoriyalar' : cat}</option>
@@ -155,16 +191,19 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                             <option value="questions_asc">Az sual</option>
                         </select>
                         <Button onClick={onStartSmartPractice} variant="primary" className="w-full sm:w-auto"><LightbulbIcon /><span className="hidden sm:inline ml-2">Ağıllı Məşq</span></Button>
-                        {isAdmin && <Button onClick={() => setShowArchived(!showArchived)} variant="secondary" className="w-full sm:w-auto">{showArchived ? 'Aktiv Testlər' : 'Arxiv'}</Button>}
                         {isAdmin && <Button onClick={onAddNewQuiz} className="w-full sm:w-auto"><PlusIcon /><span className="sm:hidden md:inline">Test yarat</span></Button>}
                     </div>
                 </div>
             </Card>
 
+            {isAdmin && <AdminTabs />}
+
             {sortedAndFilteredQuizzes.length === 0 ? (
                 <Card className="text-center py-12">
                     <p className="text-gray-500">
-                        {showArchived ? 'Arxivdə test tapılmadı.' : 'Testlər tapılmadı. Filtləri dəyişməyə və ya yeni test yaratmağa cəhd edin!'}
+                        {viewMode === 'archived' && 'Arxivdə test tapılmadı.'}
+                        {viewMode === 'drafts' && 'Qaralama test tapılmadı.'}
+                        {viewMode === 'published' && 'Dərc edilmiş test tapılmadı. Filtləri dəyişməyə və ya yeni test yaratmağa cəhd edin!'}
                     </p>
                 </Card>
             ) : (
@@ -179,6 +218,7 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                             onArchiveRequest={onArchiveRequest}
                             onDeleteRequest={onDeleteRequest}
                             isAdmin={isAdmin}
+                            onToggleStatus={onToggleStatus}
                         />
                     ))}
                 </div>

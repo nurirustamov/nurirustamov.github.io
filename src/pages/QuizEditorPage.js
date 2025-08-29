@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import ComboBox from '../components/ui/ComboBox';
-import QuestionEditor from '../components/QuestionEditor'; // Assuming this component exists and works as before
-import { ArrowLeftIcon, PlusIcon, CheckIcon, UploadIcon, LibraryIcon, LockClosedIcon, DocumentTextIcon, PencilAltIcon, ClockIcon } from '../assets/icons';
+import QuestionEditor from '../components/QuestionEditor';
+import { ArrowLeftIcon, PlusIcon, CheckIcon, UploadIcon, LibraryIcon, DocumentTextIcon, PencilAltIcon, ClockIcon } from '../assets/icons';
 
-const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = [], onImportRequest, onAddFromBankRequest, onDraftChange }) => {
+const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = [], onImportRequest, onAddFromBankRequest, onDraftChange, onSaveQuestionToBank }) => {
 
     const handleQuizInfoChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -123,6 +123,7 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                             <div className="space-y-3 pt-2 border-t">
                                 <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleQuestions" checked={!!quiz.shuffleQuestions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Sualları qarışdır</span></label>
                                 <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleOptions" checked={!!quiz.shuffleOptions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Variantları qarışdır</span></label>
+                                <label className="flex items-center cursor-pointer"><input type="checkbox" name="is_published" checked={!!quiz.is_published} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Dərc et (istifadəçilər üçün görünən)</span></label>
                             </div>
                         </div>
                     </Card>
@@ -162,7 +163,17 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                             </div>
                         </div>
                         <div className="space-y-4">
-                            {quiz.questions.map((q, index) => <QuestionEditor key={q.id} question={q} index={index} onUpdate={updateQuestion} onDelete={() => deleteQuestion(q.id)} onDuplicate={() => handleDuplicateQuestion(q.id)} />)}
+                            {quiz.questions.map((q, index) => (
+                                <QuestionEditor
+                                    key={q.id}
+                                    question={q}
+                                    index={index}
+                                    onUpdate={updateQuestion}
+                                    onDelete={() => deleteQuestion(q.id)}
+                                    onDuplicate={() => handleDuplicateQuestion(q.id)}
+                                    onSaveToBank={() => onSaveQuestionToBank(q)}
+                                />
+                            ))}
                         </div>
                         {quiz.questions.length === 0 && (
                             <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">

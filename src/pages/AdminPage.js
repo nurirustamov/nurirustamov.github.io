@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import Card from '../components/ui/Card';
-import { UsersIcon, DocumentTextIcon, CollectionIcon } from '../assets/icons';
+import { UsersIcon, DocumentTextIcon, CollectionIcon, ChartBarIcon as DashboardIcon } from '../assets/icons';
 
 const AdminPage = () => {
     const navLinkClasses = ({ isActive }) => 
@@ -14,6 +14,10 @@ const AdminPage = () => {
                 <Card>
                     <h2 className="text-lg font-bold mb-4">Admin Panel</h2>
                     <nav className="space-y-1">
+                        <NavLink to="/admin" end className={navLinkClasses}>
+                            <DashboardIcon className="w-5 h-5 mr-3" />
+                            İdarəetmə Paneli
+                        </NavLink>
                         <NavLink to="/admin/users" className={navLinkClasses}>
                             <UsersIcon className="w-5 h-5 mr-3" />
                             İstifadəçi İdarəetməsi

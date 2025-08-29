@@ -84,7 +84,6 @@ const ManualReviewPage = ({ results, quizzes, onUpdateResult }) => {
         };
 
         onUpdateResult(updatedResult);
-        navigate('/stats');
     };
 
     if (!isAuthenticated) {

@@ -1,22 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import { GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon, TrophyIcon } from '../assets/icons';
 
-const LeaderboardList = ({ users, title }) => (
+const LeaderboardList = ({ users, title, currentUserId }) => (
     <Card>
         <h2 className="text-xl font-bold text-center mb-4 text-orange-600">{title}</h2>
         {users.length > 0 ? (
             <ol className="space-y-3">
                 {users.map((user, index) => (
-                    <li key={user.user_id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                    <li key={user.user_id} className={`flex items-center justify-between p-3 rounded-lg transition ${user.user_id === currentUserId ? 'bg-orange-100 border-2 border-orange-300' : 'bg-gray-50 hover:bg-gray-100'}`}>
                         <div className="flex items-center gap-4">
                             <span className="text-lg font-bold text-gray-400 w-6 text-center">{index + 1}</span>
                             <span className="flex items-center gap-2">
                                 {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="text-gray-400" />}
-                                <Link to={`/student/${user.user_id}`} className="font-semibold text-gray-800 hover:underline">
-                                    {user.userName} {user.userSurname}
-                                </Link>
+                                <span className={`font-semibold ${user.user_id === currentUserId ? 'text-orange-700 font-bold' : 'text-gray-800'}`}>
+                                    {user.userName} {user.userSurname} {user.user_id === currentUserId && '(Siz)'}
+                                </span>
                             </span>
                         </div>
                         <span className="font-bold text-lg text-orange-500">{user.totalScore} bal</span>
@@ -29,13 +28,14 @@ const LeaderboardList = ({ users, title }) => (
     </Card>
 );
 
-const LeaderboardPage = ({ results }) => {
+const LeaderboardPage = ({ results, profile }) => {
     const [activeTab, setActiveTab] = useState('weekly');
+    const currentUserId = profile?.id;
 
     const leaderboardData = useMemo(() => {
         const processResults = (filteredResults) => {
             const userScores = filteredResults.reduce((acc, result) => {
-                if (!result.user_id) return acc; // Пропускаем результаты без user_id
+                if (!result.user_id) return acc;
                 
                 const key = result.user_id;
                 if (!acc[key]) {
@@ -77,8 +77,8 @@ const LeaderboardPage = ({ results }) => {
                 </nav>
             </div>
 
-            {activeTab === 'weekly' && <LeaderboardList users={leaderboardData.weekly} title="Həftənin Liderləri" />}
-            {activeTab === 'overall' && <LeaderboardList users={leaderboardData.overall} title="Bütün Zamanların Liderləri" />}
+            {activeTab === 'weekly' && <LeaderboardList users={leaderboardData.weekly} title="Həftənin Liderləri" currentUserId={currentUserId} />}
+            {activeTab === 'overall' && <LeaderboardList users={leaderboardData.overall} title="Bütün Zamanların Liderləri" currentUserId={currentUserId} />}
         </div>
     );
 };

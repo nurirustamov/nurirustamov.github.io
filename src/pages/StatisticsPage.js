@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { ArrowLeftIcon, DownloadIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon, ClockIcon, CheckCircleIcon as CheckIcon, EyeIcon, ClipboardCheckIcon, ChartBarIcon, ArrowUpIcon, ArrowDownIcon } from '../assets/icons.js';
+import { ArrowLeftIcon, DownloadIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon, ClockIcon, CheckCircleIcon as CheckIcon, EyeIcon, ClipboardCheckIcon, ChartBarIcon} from '../assets/icons.js';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Pie, Bar, getElementAtEvent } from 'react-chartjs-2';
 
@@ -61,42 +61,112 @@ const QuestionAnalysisModal = ({ isOpen, onClose, question, results, quizzes }) 
         const quiz = quizzes.find(q => q.title === question.quizTitle);
         if (!quiz) return null;
         const fullQuestion = quiz.questions.find(q => q.text === question.text);
-        if (!fullQuestion || !['single', 'multiple'].includes(fullQuestion.type)) return null;
+        if (!fullQuestion) return null;
 
-        const answerCounts = fullQuestion.options.reduce((acc, option) => ({ ...acc, [option]: 0 }), {});
-        let noAnswerCount = 0;
+        // --- Logic for Chart-based questions (single, multiple) ---
+        if (['single', 'multiple'].includes(fullQuestion.type)) {
+            const answerCounts = fullQuestion.options.reduce((acc, option) => ({ ...acc, [option]: 0 }), {});
+            let noAnswerCount = 0;
 
-        results.forEach(result => {
-            if (result.quizId !== quiz.id) return;
-            const userAnswer = result.userAnswers[fullQuestion.id];
-            if (!userAnswer || userAnswer.length === 0) {
-                noAnswerCount++;
-            } else if (fullQuestion.type === 'multiple') {
-                userAnswer.forEach(answer => { if (answerCounts[answer] !== undefined) answerCounts[answer]++; });
-            } else {
-                if (answerCounts[userAnswer] !== undefined) answerCounts[userAnswer]++;
-            }
-        });
+            results.forEach(result => {
+                if (result.quizId !== quiz.id) return;
+                const userAnswer = result.userAnswers[fullQuestion.id];
+                if (!userAnswer || userAnswer.length === 0) {
+                    noAnswerCount++;
+                } else if (fullQuestion.type === 'multiple') {
+                    userAnswer.forEach(answer => { if (answerCounts[answer] !== undefined) answerCounts[answer]++; });
+                } else {
+                    if (answerCounts[userAnswer] !== undefined) answerCounts[userAnswer]++;
+                }
+            });
 
-        const chartData = {
-            labels: Object.keys(answerCounts),
-            datasets: [{
-                label: 'Cavabların sayı',
-                data: Object.values(answerCounts),
-                backgroundColor: Object.keys(answerCounts).map(option => fullQuestion.correctAnswers.map(i => fullQuestion.options[i]).includes(option) ? 'rgba(75, 192, 192, 0.6)' : 'rgba(255, 99, 132, 0.6)'),
-                borderColor: Object.keys(answerCounts).map(option => fullQuestion.correctAnswers.map(i => fullQuestion.options[i]).includes(option) ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)'),
-                borderWidth: 1,
-            },],
-        };
-        return { chartData, noAnswerCount, totalAnswers: results.filter(r => r.quizId === quiz.id).length };
+            const chartData = {
+                labels: Object.keys(answerCounts),
+                datasets: [{
+                    label: 'Cavabların sayı',
+                    data: Object.values(answerCounts),
+                    backgroundColor: Object.keys(answerCounts).map(option => {
+                        const correctOptions = fullQuestion.correctAnswers.map(i => fullQuestion.options[i]);
+                        return correctOptions.includes(option) ? 'rgba(75, 192, 192, 0.6)' : 'rgba(255, 99, 132, 0.6)';
+                    }),
+                    borderColor: Object.keys(answerCounts).map(option => {
+                         const correctOptions = fullQuestion.correctAnswers.map(i => fullQuestion.options[i]);
+                        return correctOptions.includes(option) ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)';
+                    }),
+                    borderWidth: 1,
+                },],
+            };
+            return {
+                type: 'chart',
+                chartData,
+                noAnswerCount,
+                totalAnswers: results.filter(r => r.quizId === quiz.id).length
+            };
+        }
+
+        // --- Logic for Text-based questions (textInput, open) ---
+        if (['textInput', 'open'].includes(fullQuestion.type)) {
+            const answerCounts = new Map();
+            let noAnswerCount = 0;
+
+            results.forEach(result => {
+                if (result.quizId !== quiz.id) return;
+                const userAnswer = result.userAnswers[fullQuestion.id];
+
+                if (!userAnswer || typeof userAnswer !== 'string' || userAnswer.trim() === '') {
+                    noAnswerCount++;
+                } else {
+                    const normalizedAnswer = userAnswer.trim().toLowerCase();
+                    answerCounts.set(normalizedAnswer, (answerCounts.get(normalizedAnswer) || 0) + 1);
+                }
+            });
+
+            const groupedAnswers = Array.from(answerCounts.entries())
+                .map(([answer, count]) => ({ answer, count }))
+                .sort((a, b) => b.count - a.count);
+
+            return {
+                type: 'list',
+                groupedAnswers,
+                noAnswerCount,
+                totalAnswers: results.filter(r => r.quizId === quiz.id).length
+            };
+        }
+
+        return null; // For other question types if any
+
     }, [question, results, quizzes]);
 
     if (!isOpen || !analysis) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Sual Təhlili: ${question.text}`}>
-            <div className="w-full h-72"><Bar data={analysis.chartData} options={{ maintainAspectRatio: false, indexAxis: 'y' }} /></div>
-            <p className="text-center text-sm text-gray-600 mt-4">Bu suala {analysis.totalAnswers} nəfərdən {analysis.noAnswerCount} nəfər cavab verməyib.</p>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Sual Təhlili: ${question.text}`} size="lg">
+            {analysis.type === 'chart' && (
+                <>
+                    <div className="w-full h-80"><Bar data={analysis.chartData} options={{ maintainAspectRatio: false, indexAxis: 'y' }} /></div>
+                    <p className="text-center text-sm text-gray-600 mt-4">Bu suala {analysis.totalAnswers} nəfərdən {analysis.noAnswerCount} nəfər cavab verməyib.</p>
+                </>
+            )}
+            {analysis.type === 'list' && (
+                 <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-800">Tələbə Cavablarının Qruplaşdırılması:</h4>
+                    <div className="max-h-80 overflow-y-auto pr-2 border rounded-lg p-3 bg-gray-50">
+                        {analysis.groupedAnswers.length > 0 ? (
+                            <ul className="divide-y divide-gray-200">
+                                {analysis.groupedAnswers.map(({ answer, count }) => (
+                                    <li key={answer} className="py-2 flex justify-between items-center">
+                                        <span className="text-gray-700 break-all mr-4">{answer}</span>
+                                        <span className="font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full text-sm flex-shrink-0">{count} cavab</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-gray-500 text-center py-4">Bu suala heç bir mətn cavabı verilməyib.</p>
+                        )}
+                    </div>
+                    <p className="text-center text-sm text-gray-600 mt-2">Bu suala {analysis.totalAnswers} nəfərdən {analysis.noAnswerCount} nəfər cavab verməyib.</p>
+                </div>
+            )}
         </Modal>
     );
 };

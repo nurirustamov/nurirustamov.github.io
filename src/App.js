@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useNavigate, useParams, Link, useLocation, createSearchParams } from 'react-router-dom';
 import Papa from 'papaparse';
 import { supabase } from './supabaseClient';
@@ -8,7 +8,7 @@ import Modal from './components/ui/Modal';
 import Toast from './components/ui/Toast';
 import WavingCat from './components/WavingCat';
 import Button from './components/ui/Button';
-import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon } from './assets/icons';
+import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, DotsVerticalIcon, MenuIcon, XIcon } from './assets/icons';
 
 // --- Страницы ---
 import AuthPage from './pages/AuthPage';
@@ -24,6 +24,7 @@ import QuestionBankPage from './pages/QuestionBankPage';
 import PastQuizReviewPage from './pages/PastQuizReviewPage';
 import ManualReviewPage from './pages/ManualReviewPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminPage from './pages/AdminPage';
 import UserManagementPage from './pages/UserManagementPage';
 import QuizAnalysisPage from './pages/QuizAnalysisPage';
@@ -36,15 +37,68 @@ import CourseEditorPage from './pages/CourseEditorPage';
 import PublicCourseListPage from './pages/PublicCourseListPage';
 import CourseViewPage from './pages/CourseViewPage';
 
+// --- Компонент-обертка для защиты роутов ---
+const AdminRoute = ({ profile, showToast, children }) => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (profile === null) return;
+        if (profile.role !== 'admin') {
+            showToast('Bu səhifəyə baxmaq üçün admin hüququ tələb olunur.');
+            navigate('/');
+        }
+    }, [profile, navigate, showToast]);
+
+    if (!profile || profile.role !== 'admin') {
+        return <div className="text-center py-12">Giriş yoxlanılır...</div>;
+    }
+
+    return children;
+};
+
+// --- Новый компонент выпадающего меню для админа ---
+const AdminDropdown = ({ onQuestionBankRequest }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={menuRef}>
+            <Button variant="secondary" onClick={() => setIsOpen(!isOpen)}><DotsVerticalIcon /></Button>
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <div className="py-1">
+                        <Link to="/stats" onClick={() => setIsOpen(false)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <ChartBarIcon /> <span className="ml-3">Statistika</span>
+                        </Link>
+                        <button onClick={() => { onQuestionBankRequest(); setIsOpen(false); }} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <LibraryIcon /> <span className="ml-3">Suallar Bankı</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 // --- Новый компонент уведомлений ---
-const NotificationBell = ({ notifications, onMarkAsRead, onMarkAllAsRead }) => {
+const NotificationBell = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClearAllNotifications }) => {
     const [isOpen, setIsOpen] = useState(false);
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
     const handleNotificationClick = (notification) => {
         onMarkAsRead(notification.id);
         setIsOpen(false);
-        // Дополнительно можно использовать navigate(notification.target_url) если он есть
     };
 
     return (
@@ -75,6 +129,11 @@ const NotificationBell = ({ notifications, onMarkAsRead, onMarkAllAsRead }) => {
                                 <p className="text-center py-4 text-gray-500">Hələlik bildiriş yoxdur.</p>
                             )}
                         </div>
+                        {notifications.length > 0 && (
+                            <div className="px-4 py-2 border-t text-center">
+                                <button onClick={onClearAllNotifications} className="text-sm text-red-600 hover:underline">Hamısını sil</button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -162,10 +221,28 @@ const ImportModal = ({ isOpen, onClose, onImport, showToast }) => {
 const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) => {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTag, setSelectedTag] = useState('');
+
+    // Сбрасываем состояние при закрытии модального окна для чистоты
+    useEffect(() => {
+        if (!isOpen) {
+            setSelectedIds(new Set());
+            setSearchTerm('');
+            setSelectedTag('');
+        }
+    }, [isOpen]);
+
+    const uniqueTags = useMemo(() => {
+        const allTags = new Set(questionBank.flatMap(q => q.tags || []));
+        return Array.from(allTags).sort();
+    }, [questionBank]);
 
     const filteredBank = useMemo(() =>
-            questionBank.filter(q => q.text.toLowerCase().includes(searchTerm.toLowerCase()))
-        , [questionBank, searchTerm]);
+        questionBank.filter(q => {
+            const matchesSearch = q.text.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesTag = !selectedTag || (q.tags && q.tags.includes(selectedTag));
+            return matchesSearch && matchesTag;
+        }), [questionBank, searchTerm, selectedTag]);
 
     const handleToggleSelection = (id) => {
         const newSelection = new Set(selectedIds);
@@ -191,7 +268,21 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Bankdan sual əlavə et">
             <div className="space-y-4">
-                <input type="text" placeholder="Sual axtar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" />
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <input type="text" placeholder="Sual axtar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" />
+                    {uniqueTags.length > 0 && (
+                        <select
+                            value={selectedTag}
+                            onChange={e => setSelectedTag(e.target.value)}
+                            className="p-2 border border-gray-300 rounded-md bg-white"
+                        >
+                            <option value="">Bütün teqlər</option>
+                            {uniqueTags.map(tag => (
+                                <option key={tag} value={tag}>{tag}</option>
+                            ))}
+                        </select>
+                    )}
+                </div>
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                     {filteredBank.map(q => (
                         <div key={q.id} className="flex items-center p-2 rounded-md hover:bg-gray-100">
@@ -208,7 +299,7 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
 
 // --- Компоненты-обертки для страниц (вынесены из App для стабильности) ---
 
-const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin }) => {
+const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const queryParams = new URLSearchParams(location.search);
@@ -230,6 +321,7 @@ const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, o
         showArchived={showArchived}
         setShowArchived={handleSetShowArchived}
         isAdmin={isAdmin}
+        onToggleStatus={onToggleStatus}
     />;
 };
 
@@ -238,8 +330,26 @@ const StatisticsPageWrapper = ({ results, quizzes, onReviewResult }) => {
     return <StatisticsPage results={results} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={onReviewResult} />;
 };
 
-const StudentReportPageWrapper = ({ results, onReviewResult }) => {
+const StudentReportPageWrapper = ({ results, onReviewResult, profile, showToast }) => {
+    const { userId } = useParams();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!profile) return; // Ждем загрузки профиля
+
+        const canView = profile.role === 'admin' || profile.id === userId;
+
+        if (!canView) {
+            showToast('Bu səhifəyə baxmaq üçün icazəniz yoxdur.');
+            navigate('/');
+        }
+    }, [profile, userId, navigate, showToast]);
+
+    // Пока идет проверка, ничего не рендерим или показываем загрузчик
+    if (!profile || (profile.role !== 'admin' && profile.id !== userId)) {
+        return null;
+    }
+
     return <StudentReportPage results={results} onBack={() => navigate('/stats')} onReviewResult={onReviewResult} />;
 };
 
@@ -247,8 +357,8 @@ const QuestionBankPageWrapper = ({ questionBank, onSave, onDelete, showToast }) 
     <QuestionBankPage questionBank={questionBank} onSave={onSave} onDelete={onDelete} showToast={showToast} />
 );
 
-const LeaderboardPageWrapper = ({ results }) => (
-    <LeaderboardPage results={results} />
+const LeaderboardPageWrapper = ({ results, profile }) => (
+    <LeaderboardPage results={results} profile={profile} />
 );
 
 const PastQuizReviewPageWrapper = ({ quizResults, quizzes, profile, fetchComments, postComment, deleteComment }) => {
@@ -315,7 +425,8 @@ const QuizPageWrapper = ({
                              handleSubmitQuiz,
                              fetchComments,
                              postComment,
-                             deleteComment
+                             deleteComment,
+                             onSaveQuestionToBank
                          }) => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -333,7 +444,7 @@ const QuizPageWrapper = ({
 
     switch (pageType) {
         case 'edit':
-            return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={() => handleImportRequest(quiz.id)} onAddFromBankRequest={() => handleAddFromBankRequest(quiz.id)} onDraftChange={setEditingQuizDraft} />;
+            return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={handleImportRequest} onAddFromBankRequest={handleAddFromBankRequest} onDraftChange={setEditingQuizDraft} onSaveQuestionToBank={onSaveQuestionToBank} />;
         case 'take':
             return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
         case 'practice':
@@ -341,7 +452,7 @@ const QuizPageWrapper = ({
         case 'custom_practice':
             return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
         case 'result':
-            return <QuizResultPage lastResult={lastResult} allResultsForThisQuiz={quizResults.filter(r => r.quizId === quiz.id)} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
+            return <QuizResultPage lastResult={lastResult} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
         case 'review':
             const resultForReview = lastResult || quizResults.find(r => r.quizId === quiz.id && r.user_id === session.user.id);
             if (!resultForReview) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
@@ -370,6 +481,7 @@ export default function App() {
     const [userAchievements, setUserAchievements] = useState([]);
     const [allAchievements, setAllAchievements] = useState([]);
     const [allUsers, setAllUsers] = useState([]); // For admin panel
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const [lastResult, setLastResult] = useState(null);
     const [toast, setToast] = useState({ message: '', isVisible: false });
@@ -378,13 +490,49 @@ export default function App() {
     const [isModeSelectionModalOpen, setIsModeSelectionModalOpen] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, idToDelete: null, type: null });
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-    const [quizToImportInto, setQuizToImportInto] = useState(null);
     const [isAddFromBankModalOpen, setIsAddFromBankModalOpen] = useState(false);
-    const [quizToAddTo, setQuizToAddTo] = useState(null);
     const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
     const [passcodeQuiz, setPasscodeQuiz] = useState(null);
 
     const navigate = useNavigate();
+
+    const adminDashboardStats = useMemo(() => {
+        if (profile?.role !== 'admin') {
+            return null;
+        }
+
+        // 1. Количество тестов на ручной проверке
+        const pendingReviewCount = quizResults.filter(r => r.status === 'pending_review').length;
+
+        // 2. Количество новых пользователей за сегодня
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const newUsersTodayCount = allUsers.filter(u => new Date(u.created_at) >= today).length;
+
+        // 3. Общее количество пользователей
+        const totalUsersCount = allUsers.length;
+
+        // 4. Топ-3 самых активных студента за последнюю неделю
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+        const recentResults = quizResults.filter(r => new Date(r.created_at) >= oneWeekAgo);
+
+        const userActivity = recentResults.reduce((acc, result) => {
+            acc[result.user_id] = (acc[result.user_id] || 0) + 1;
+            return acc;
+        }, {});
+
+        const topStudents = Object.entries(userActivity)
+            .sort(([, countA], [, countB]) => countB - countA)
+            .slice(0, 3)
+            .map(([userId, quizCount]) => {
+                const user = allUsers.find(u => u.id === userId);
+                return { name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Неизвестный пользователь', quizCount, userId };
+            });
+
+        return { pendingReviewCount, newUsersTodayCount, totalUsersCount, topStudents };
+    }, [quizResults, allUsers, profile]);
 
     const showToast = useCallback((message) => {
         setToast({ message, isVisible: true });
@@ -531,7 +679,11 @@ export default function App() {
                     }
                 }
 
-                const { data: quizzesData } = await supabase.from('quizzes').select('*').order('id', { ascending: false });
+                let quizzesQuery = supabase.from('quizzes').select('*');
+                if (profileData?.role !== 'admin') {
+                    quizzesQuery = quizzesQuery.eq('is_published', true);
+                }
+                const { data: quizzesData } = await quizzesQuery.order('id', { ascending: false });
                 setQuizzes(quizzesData || []);
 
                 const { data: questionBankData } = await supabase.from('question_bank').select('*').order('created_at', { ascending: false });
@@ -587,7 +739,7 @@ export default function App() {
         if (!isAuthLoading) {
             fetchUserData();
         }
-    }, [session?.user?.id, isAuthLoading, fetchNotifications, showToast]);
+    }, [session, isAuthLoading, fetchNotifications, showToast]);
 
     // --- REALTIME NOTIFICATIONS --- //
     useEffect(() => {
@@ -608,7 +760,7 @@ export default function App() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [session?.user?.id, showToast]);
+    }, [session, showToast]);
 
     const existingQuizCategories = useMemo(() => {
         const categories = new Set(quizzes.map(q => q.category).filter(Boolean));
@@ -630,14 +782,14 @@ export default function App() {
 
     const handleAddNewQuizRequest = async () => {
         if (!checkAdmin()) return;
-        const { data: newQuiz, error } = await supabase.from('quizzes').insert({ title: 'Yeni Test', questions: [] }).select().single();
+        const { data: newQuiz, error } = await supabase.from('quizzes').insert({ title: 'Yeni Test', questions: [], is_published: false }).select().single();
         if (error) {
             showToast(`Test yaradılarkən xəta: ${error.message}`);
         } else if (newQuiz) {
             setQuizzes(prev => [newQuiz, ...prev]);
             setEditingQuizDraft(newQuiz);
             navigate(`/quiz/${newQuiz.id}/edit`);
-            showToast('Yeni test uğurla yaradıldı!');
+            showToast('Yeni test qaralama kimi yaradıldı!');
         }
     };
 
@@ -665,6 +817,7 @@ export default function App() {
         }
         const { id, created_at, ...quizToClone } = originalQuiz;
         quizToClone.title = `${quizToClone.title} (kopiya)`;
+        quizToClone.is_published = false; // Cloned quizzes are drafts by default
         const { data: clonedQuiz, error: cloneError } = await supabase.from('quizzes').insert(quizToClone).select().single();
         if (cloneError) {
             showToast(`Test kopyalanarkən xəta: ${cloneError.message}`);
@@ -672,7 +825,7 @@ export default function App() {
             setQuizzes(prev => [clonedQuiz, ...prev]);
             setEditingQuizDraft(clonedQuiz);
             navigate(`/quiz/${clonedQuiz.id}/edit`);
-            showToast('Test uğurla kopyalandı!');
+            showToast('Test uğurla kopyalandı və qaralama kimi saxlanıldı!');
         }
     };
 
@@ -684,6 +837,17 @@ export default function App() {
         } else if (updatedQuiz) {
             setQuizzes(prev => prev.map(q => q.id === quizId ? updatedQuiz : q));
             showToast(isArchived ? 'Test arxivə əlavə edildi.' : 'Test arxivdən çıxarıldı.');
+        }
+    };
+
+    const handleToggleQuizStatus = async (quizId, newStatus) => {
+        if (!checkAdmin()) return;
+        const { data, error } = await supabase.from('quizzes').update({ is_published: newStatus }).eq('id', quizId).select().single();
+        if (error) {
+            showToast('Statusu dəyişərkən xəta baş verdi.');
+        } else {
+            setQuizzes(prev => prev.map(a => a.id === quizId ? data : a));
+            showToast(newStatus ? 'Test dərc edildi!' : 'Test qaralama kimi saxlanıldı.');
         }
     };
 
@@ -759,6 +923,38 @@ export default function App() {
         } else {
             setQuestionBank(prev => prev.filter(q => q.id !== questionId));
             showToast('Sual bankdan silindi.');
+        }
+    };
+
+    const handleSaveQuestionFromEditorToBank = async (question) => {
+        if (!checkAdmin()) return;
+
+        // We don't want to save the temporary ID from the quiz draft
+        const { id, ...questionToSave } = question;
+
+        // Check for duplicates in the bank based on question text
+        const { data: existing, error: checkError } = await supabase
+            .from('question_bank')
+            .select('id')
+            .eq('text', questionToSave.text)
+            .limit(1);
+
+        if (checkError) {
+            showToast(`Banka yoxlayarkən xəta: ${checkError.message}`);
+            return;
+        }
+
+        if (existing && existing.length > 0) {
+            showToast('Bu sual artıq bankda mövcuddur.');
+            return;
+        }
+
+        const { data, error } = await supabase.from('question_bank').insert(questionToSave).select().single();
+        if (error) {
+            showToast(`Sualı banka əlavə edərkən xəta: ${error.message}`);
+        } else {
+            setQuestionBank(prev => [data, ...prev]);
+            showToast('Sual uğurla banka əlavə edildi!');
         }
     };
 
@@ -968,9 +1164,8 @@ export default function App() {
         }
     };
 
-    const handleImportRequest = (quizId) => {
+    const handleImportRequest = () => {
         if (!checkAdmin()) return;
-        setQuizToImportInto(quizId);
         setIsImportModalOpen(true);
     };
 
@@ -1018,9 +1213,8 @@ export default function App() {
         });
     };
 
-    const handleAddFromBankRequest = (quizId) => {
+    const handleAddFromBankRequest = () => {
         if (!checkAdmin()) return;
-        setQuizToAddTo(quizId);
         setIsAddFromBankModalOpen(true);
     };
 
@@ -1039,6 +1233,19 @@ export default function App() {
             setQuizResults(prev => prev.map(r => r.id === id ? data : r));
             navigate('/stats');
             showToast('Nəticə uğurla yeniləndi!');
+
+            // Send notification to the user
+            if (data.status === 'completed') {
+                const { error: rpcError } = await supabase.rpc('create_manual_review_notification', {
+                    result_id_in: id
+                });
+
+                if (rpcError) {
+                    console.error('Error sending manual review notification:', rpcError);
+                    // We don't show a toast here because the admin doesn't need to know about this error,
+                    // but we log it for debugging.
+                }
+            }
         }
     };
 
@@ -1259,9 +1466,9 @@ export default function App() {
     const postComment = async (targetId, targetType, content, parentCommentId = null, targetUrl = null) => {
         const { data: newComment, error } = await supabase
             .from('comments')
-            .insert({ 
-                content, 
-                user_id: session.user.id, 
+            .insert({
+                content,
+                user_id: session.user.id,
                 [`${targetType}_id`]: targetId,
                 parent_comment_id: parentCommentId
             })
@@ -1301,18 +1508,45 @@ export default function App() {
     };
 
     const handleMarkNotificationAsRead = async (notificationId) => {
+        // Optimistic update
+        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
         const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
-        if (!error) {
-            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+        if (error) {
+            console.error('Error marking notification as read:', error);
+            showToast('Bildiriş oxundu olaraq işarələnərkən xəta baş verdi.');
+            // Revert if error
+            fetchNotifications();
         }
     };
 
     const handleMarkAllNotificationsAsRead = async () => {
-        const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
-        if (unreadIds.length === 0) return;
-        const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
-        if (!error) {
-            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        // Optimistic update
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', session.user.id).neq('is_read', true);
+        if (error) {
+            console.error('Error marking all notifications as read:', error);
+            showToast('Bütün bildirişlər oxundu olaraq işarələnərkən xəta baş verdi.');
+            // Revert if error
+            fetchNotifications();
+        }
+    };
+
+    const handleClearAllNotifications = async () => {
+        if (!session?.user?.id) return;
+
+        // Optimistic update
+        setNotifications([]);
+        showToast('Bütün bildirişlər silinir...');
+
+        const { error } = await supabase.from('notifications').delete().eq('user_id', session.user.id);
+
+        if (error) {
+            console.error('Error clearing all notifications:', error);
+            showToast('Bildirişlər silinərkən xəta baş verdi.');
+            // Revert if error
+            fetchNotifications(); // Re-fetch notifications to restore state
+        } else {
+            showToast('Bütün bildirişlər uğurla silindi!');
         }
     };
 
@@ -1372,41 +1606,78 @@ export default function App() {
                             <header className="bg-white shadow-md sticky top-0 z-40">
                                 <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
                                     <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
-                                    <div className="flex items-center gap-2">
-                                        <Link to="/courses"><Button as="span" variant="secondary"><CollectionIcon /><span className="hidden md:inline ml-2">Kurslar</span></Button></Link>
-                                        <Link to="/articles"><Button as="span" variant="secondary"><DocumentTextIcon /><span className="hidden md:inline ml-2">Məqalələr</span></Button></Link>
+
+                                    {/* Desktop Navigation */}
+                                    <nav className="hidden lg:flex items-center gap-2">
+                                        <Link to="/courses"><Button as="span" variant="secondary"><CollectionIcon /><span className="ml-2">Kurslar</span></Button></Link>
+                                        <Link to="/articles"><Button as="span" variant="secondary"><DocumentTextIcon /><span className="ml-2">Məqalələr</span></Button></Link>
+                                        <Link to="/leaderboard"><Button as="span" variant="secondary"><LeaderboardIcon /><span className="ml-2">Reytinqlər</span></Button></Link>
                                         {profile?.role === 'admin' && (
-                                            <div className="flex items-center gap-1 sm:gap-2">
-                                                <Link to="/admin/users"><Button as="span" variant="secondary"><ShieldCheckIcon /><span className="hidden md:inline ml-2">Admin Panel</span></Button></Link>
-                                                <Link to="/leaderboard"><Button as="span" variant="secondary"><LeaderboardIcon /><span className="hidden md:inline ml-2">Reytinqlər</span></Button></Link>
-                                                <Link to="/stats"><Button as="span" variant="secondary"><ChartBarIcon /><span className="hidden md:inline ml-2">Statistika</span></Button></Link>
-                                                <Button onClick={handleQuestionBankRequest} variant="secondary"><LibraryIcon /><span className="hidden md:inline ml-2">Suallar Bankı</span></Button>
+                                            <Link to="/admin"><Button as="span" variant="secondary"><ShieldCheckIcon /><span className="ml-2">Admin Panel</span></Button></Link>
+                                        )}
+                                    </nav>
+
+                                    <div className="flex items-center gap-2">
+                                        {profile?.role === 'admin' && (
+                                            <div className="hidden lg:flex">
+                                                <AdminDropdown onQuestionBankRequest={handleQuestionBankRequest} />
                                             </div>
                                         )}
-                                        <NotificationBell notifications={notifications} onMarkAsRead={handleMarkNotificationAsRead} onMarkAllAsRead={handleMarkAllNotificationsAsRead} />
-                                        <Link to="/profile">
+                                        <NotificationBell notifications={notifications} onMarkAsRead={handleMarkNotificationAsRead} onMarkAllAsRead={handleMarkAllNotificationsAsRead} onClearAllNotifications={handleClearAllNotifications} />
+                                        <Link to="/profile" className="hidden sm:flex">
                                             <Button variant="secondary"><UserCircleIcon /><span className="hidden sm:inline ml-2">Profil</span></Button>
                                         </Link>
-                                        <Button onClick={handleSignOut} variant="danger"><LogoutIcon /></Button>
+                                        <Button onClick={handleSignOut} variant="danger" className="hidden sm:flex"><LogoutIcon /></Button>
+
+                                        {/* Mobile Menu Button */}
+                                        <div className="lg:hidden">
+                                            <Button variant="secondary" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                                                {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
+                                {/* Mobile Menu */}
+                                {isMobileMenuOpen && (
+                                    <div className="lg:hidden bg-white border-t">
+                                        <nav className="flex flex-col p-4 space-y-2">
+                                            <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
+                                            <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
+                                            <Link to="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><LeaderboardIcon /><span className="ml-3">Reytinqlər</span></Link>
+                                            <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100 sm:hidden"><UserCircleIcon /><span className="ml-3">Profil</span></Link>
+                                            <div className="border-t my-2"></div>
+                                            {profile?.role === 'admin' && (
+                                                <>
+                                                    <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ShieldCheckIcon /><span className="ml-3">Admin Panel</span></Link>
+                                                    <Link to="/stats" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ChartBarIcon /> <span className="ml-3">Statistika</span></Link>
+                                                    <button onClick={() => { handleQuestionBankRequest(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-gray-700 rounded-md hover:bg-gray-100"><LibraryIcon /> <span className="ml-3">Suallar Bankı</span></button>
+                                                    <div className="border-t my-2"></div>
+                                                </>
+                                            )}
+                                            <button onClick={() => { handleSignOut(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-red-600 rounded-md hover:bg-red-50 sm:hidden"><LogoutIcon /><span className="ml-3">Çıxış</span></button>
+                                        </nav>
+                                    </div>
+                                )}
                             </header>
                             <main className="container mx-auto px-4 py-6 md:py-8">
                                 <Routes>
-                                    <Route path="/" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} />} />
-                                    <Route path="/stats" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} />} />
-                                    <Route path="/stats/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} />} />
-                                    <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} />} />
-                                    <Route path="/question-bank" element={<QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} />} />
+                                    <Route path="/" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} />} />
+                                    <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} profile={profile} showToast={showToast} />} />
                                     <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
-                                    <Route path="/manual-review/:resultId" element={<ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} />} />
                                     <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
-                                    <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} />} />
+                                    <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} />} />
                                     <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} />} />
                                     <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                     <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
                                     <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
-                                    <Route path="/admin" element={<AdminPage />}>
+
+                                    {/* === ADMIN ROUTES === */}
+                                    <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} />} /></Routes></AdminRoute>} />
+                                    <Route path="/question-bank" element={<AdminRoute profile={profile} showToast={showToast}><QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} /></AdminRoute>} />
+                                    <Route path="/manual-review/:resultId" element={<AdminRoute profile={profile} showToast={showToast}><ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} /></AdminRoute>} />
+                                    <Route path="/quiz/:id/edit" element={<AdminRoute profile={profile} showToast={showToast}><QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft, onSaveQuestionToBank: handleSaveQuestionFromEditorToBank }} /></AdminRoute>} />
+                                    <Route path="/admin" element={<AdminRoute profile={profile} showToast={showToast}><AdminPage /></AdminRoute>}>
+                                        <Route index element={<AdminDashboardPage stats={adminDashboardStats} />} />
                                         <Route path="users" element={<UserManagementPage users={allUsers} onRoleChange={handleRoleChange} currentUserId={profile?.id} />} />
                                         <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} />} />
                                         <Route path="articles/new" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
@@ -1415,7 +1686,8 @@ export default function App() {
                                         <Route path="courses/new" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
                                         <Route path="courses/edit/:courseId" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
                                     </Route>
-                                    <Route path="/quiz/:id/edit" element={<QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft }} />} />
+
+                                    {/* === PUBLIC & USER ROUTES === */}
                                     <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz }} />} />
                                     <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes }} />} />
                                     <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} />
@@ -1435,6 +1707,6 @@ export default function App() {
             <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportQuestions} showToast={showToast} />
             <AddFromBankModal isOpen={isAddFromBankModalOpen} onClose={() => setIsAddFromBankModalOpen(false)} onAdd={handleAddQuestionsFromBank} showToast={showToast} questionBank={questionBank} />
             <WavingCat />
-        </> 
+        </>
     );
 }

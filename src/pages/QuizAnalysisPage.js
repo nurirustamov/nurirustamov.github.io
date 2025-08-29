@@ -1,15 +1,97 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, ChartBarIcon } from '../assets/icons';
+import Modal from '../components/ui/Modal';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon } from '../assets/icons';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+// --- Helper Functions ---
+const isAnswerCorrect = (question, userAnswer) => {
+    if (userAnswer === undefined || userAnswer === null) return false;
+    if (!question || !question.type) return false;
+
+    if (question.type === 'open') {
+        return userAnswer?.score > 0;
+    }
+    if (question.type === 'single') return userAnswer === question.options[question.correctAnswers[0]];
+    if (question.type === 'multiple') { const correct = question.correctAnswers.map(i => question.options[i]).sort(); const user = userAnswer ? [...userAnswer].sort() : []; return JSON.stringify(correct) === JSON.stringify(user); }
+    if (question.type === 'textInput') return userAnswer && question.correctAnswers[0].trim().toLowerCase() === userAnswer.trim().toLowerCase();
+    if (question.type === 'trueFalse') return userAnswer === question.correctAnswer;
+    if (question.type === 'ordering') return JSON.stringify(userAnswer) === JSON.stringify(question.orderItems);
+    return false;
+};
+
+const formatUserAnswer = (answer) => {
+    if (answer === null || answer === undefined) return 'Cavab yoxdur';
+    if (Array.isArray(answer)) return answer.join(', ');
+    if (typeof answer === 'object') return answer.answer || 'N/A'; // For graded 'open' questions
+    return String(answer);
+};
+
+// --- Modal Component for showing responders ---
+const QuestionRespondersModal = ({ isOpen, onClose, question, results }) => {
+    const responders = useMemo(() => {
+        if (!question || !results) return { correct: [], incorrect: [] };
+
+        const correct = [];
+        const incorrect = [];
+
+        results.forEach(result => {
+            const student = { id: result.user_id, name: `${result.userName} ${result.userSurname}` };
+            const userAnswer = result.userAnswers[question.id];
+            
+            if (isAnswerCorrect(question, userAnswer)) {
+                correct.push(student);
+            } else {
+                incorrect.push({ ...student, answer: formatUserAnswer(userAnswer) });
+            }
+        });
+
+        return { correct, incorrect };
+    }, [question, results]);
+
+    if (!isOpen) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Suala cavab verənlər: "${question.text}"`} size="lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 className="font-bold text-green-600 mb-2 flex items-center gap-2"><CheckCircleIcon /> Düzgün cavab verənlər ({responders.correct.length})</h4>
+                    <div className="max-h-64 overflow-y-auto bg-green-50 p-3 rounded-lg">
+                        {responders.correct.length > 0 ? (
+                            <ul className="space-y-2">
+                                {responders.correct.map(s => <li key={s.id}><Link to={`/student/${s.id}`} className="text-blue-600 hover:underline">{s.name}</Link></li>)}
+                            </ul>
+                        ) : <p className="text-gray-500">Yoxdur</p>}
+                    </div>
+                </div>
+                <div>
+                    <h4 className="font-bold text-red-600 mb-2 flex items-center gap-2"><XCircleIcon /> Səhv cavab verənlər ({responders.incorrect.length})</h4>
+                    <div className="max-h-64 overflow-y-auto bg-red-50 p-3 rounded-lg">
+                        {responders.incorrect.length > 0 ? (
+                            <ul className="space-y-2">
+                                {responders.incorrect.map(s => (
+                                    <li key={s.id}>
+                                        <Link to={`/student/${s.id}`} className="text-blue-600 hover:underline">{s.name}</Link>
+                                        <p className="text-xs text-gray-600 pl-2 border-l-2 border-red-200 ml-2 mt-1">Cavab: <span className="font-medium text-red-700">{s.answer}</span></p>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : <p className="text-gray-500">Yoxdur</p>}
+                    </div>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 const QuizAnalysisPage = ({ quizzes, results }) => {
     const { quizId } = useParams();
+    const [analyzingQuestion, setAnalyzingQuestion] = useState(null);
 
     const quiz = useMemo(() => quizzes.find(q => q.id === Number(quizId)), [quizzes, quizId]);
     const quizResults = useMemo(() => results.filter(r => r.quizId === Number(quizId) && r.status !== 'pending_review'), [results, quizId]);
@@ -25,25 +107,15 @@ const QuizAnalysisPage = ({ quizzes, results }) => {
         const scoreDistribution = Array(10).fill(0);
         quizResults.forEach(r => {
             const bracket = Math.floor(r.percentage / 10);
-            if (bracket === 10) scoreDistribution[9]++; // 100% falls into 90-100 bracket
+            if (bracket === 10) scoreDistribution[9]++;
             else scoreDistribution[bracket]++;
         });
 
         const questionAnalysis = (quiz.questions || []).map(q => {
             let correctCount = 0;
             quizResults.forEach(r => {
-                const userAnswer = r.userAnswers[q.id];
-                if (q.type === 'open') {
-                    if (userAnswer?.score > 0) correctCount++;
-                } else {
-                    // Simplified isAnswerCorrect logic for analysis
-                    let isCorrect = false;
-                    if (q.type === 'single') isCorrect = userAnswer === q.options[q.correctAnswers[0]];
-                    else if (q.type === 'multiple') { const correct = q.correctAnswers.map(i => q.options[i]).sort(); const user = userAnswer ? [...userAnswer].sort() : []; isCorrect = JSON.stringify(correct) === JSON.stringify(user); }
-                    else if (q.type === 'textInput') isCorrect = userAnswer && q.correctAnswers[0].toLowerCase() === userAnswer.toLowerCase();
-                    else if (q.type === 'trueFalse') isCorrect = userAnswer === q.correctAnswer;
-                    else if (q.type === 'ordering') isCorrect = JSON.stringify(userAnswer) === JSON.stringify(q.orderItems);
-                    if (isCorrect) correctCount++;
+                if (isAnswerCorrect(q, r.userAnswers[q.id])) {
+                    correctCount++;
                 }
             });
             return { ...q, correctPercentage: (correctCount / totalAttempts) * 100 };
@@ -91,24 +163,25 @@ const QuizAnalysisPage = ({ quizzes, results }) => {
 
             <Card>
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Sualların Analizi</h3>
-                <div className="space-y-4">
+                <div className="space-y-2">
                     {analysis.questionAnalysis.map((q, index) => (
-                        <div key={q.id} className="p-4 rounded-lg bg-gray-50">
+                        <button key={q.id} onClick={() => setAnalyzingQuestion(q)} className="w-full text-left p-4 rounded-lg bg-gray-50 hover:bg-orange-50 transition">
                             <p className="font-semibold">{index + 1}. {q.text}</p>
                             <div className="flex items-center gap-4 mt-2">
                                 <div className="w-full bg-gray-200 rounded-full h-4">
                                     <div 
-                                        className="bg-green-500 h-4 rounded-full"
-                                        style={{ width: `${q.correctPercentage}%` }}
+                                        className="h-4 rounded-full transition-all duration-500"
+                                        style={{ width: `${q.correctPercentage}%`, backgroundColor: q.correctPercentage > 60 ? '#22C55E' : q.correctPercentage > 30 ? '#F59E0B' : '#EF4444' }}
                                     ></div>
                                 </div>
-                                <span className="font-bold text-sm text-green-600">{q.correctPercentage.toFixed(1)}%</span>
+                                <span className="font-bold text-sm w-16 text-right" style={{ color: q.correctPercentage > 60 ? '#16A34A' : q.correctPercentage > 30 ? '#D97706' : '#DC2626' }}>{q.correctPercentage.toFixed(1)}%</span>
                             </div>
                              <p className="text-xs text-gray-500 mt-1">düzgün cavab verdi</p>
-                        </div>
+                        </button>
                     ))}
                 </div>
             </Card>
+            <QuestionRespondersModal isOpen={!!analyzingQuestion} onClose={() => setAnalyzingQuestion(null)} question={analyzingQuestion} results={quizResults} />
         </div>
     );
 };

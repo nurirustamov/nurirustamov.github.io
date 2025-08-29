@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, LightbulbIcon } from '../assets/icons';
-import Comments from '../components/Comments'; // Импортируем новый компонент
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, ClockIcon, LightbulbIcon } from '../assets/icons';
+import Comments from '../components/Comments';
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -26,6 +26,70 @@ const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment,
     }
 
     const studentName = `${result.userName} ${result.userSurname}`;
+
+    const getQuestionStatusInfo = (question, userAnswer) => {
+        // For 'open' questions, the logic depends on whether it's graded
+        if (question.type === 'open') {
+            // Graded: userAnswer is an object { answer: '...', score: X }
+            if (typeof userAnswer === 'object' && userAnswer !== null && userAnswer.hasOwnProperty('score')) {
+                return {
+                    status: userAnswer.score > 0 ? 'correct' : 'incorrect',
+                    userAnswerText: userAnswer.answer || 'Cavab yoxdur',
+                    correctAnswerText: '', // No correct answer to show, just the score
+                    manualScore: userAnswer.score
+                };
+            }
+            // Pending review: userAnswer is a string
+            return {
+                status: 'pending',
+                userAnswerText: userAnswer || 'Cavab yoxdur',
+                correctAnswerText: 'Yoxlanılır...',
+                manualScore: null
+            };
+        }
+
+        // Logic for other auto-graded question types
+        let isCorrect = false;
+        let correctAnswerText = '';
+        let userAnswerText = '';
+
+        if (question.type === 'single') {
+            isCorrect = userAnswer === question.options[question.correctAnswers[0]];
+            correctAnswerText = question.options[question.correctAnswers[0]];
+            userAnswerText = userAnswer || 'Cavab yoxdur';
+        } else if (question.type === 'multiple') {
+            const correct = question.correctAnswers.map(i => question.options[i]).sort();
+            const user = userAnswer ? [...userAnswer].sort() : [];
+            isCorrect = JSON.stringify(correct) === JSON.stringify(user);
+            correctAnswerText = correct.join(', ');
+            userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.join(', ') : 'Cavab yoxdur';
+        } else if (question.type === 'textInput') {
+            isCorrect = userAnswer && question.correctAnswers[0].trim().toLowerCase() === userAnswer.trim().toLowerCase();
+            correctAnswerText = question.correctAnswers[0];
+            userAnswerText = userAnswer || 'Cavab yoxdur';
+        } else if (question.type === 'trueFalse') {
+            isCorrect = userAnswer === question.correctAnswer;
+            correctAnswerText = question.correctAnswer ? 'Doğru' : 'Yanlış';
+            userAnswerText = userAnswer === true ? 'Doğru' : (userAnswer === false ? 'Yanlış' : 'Cavab yoxdur');
+        } else if (question.type === 'ordering') {
+            isCorrect = JSON.stringify(userAnswer) === JSON.stringify(question.orderItems);
+            correctAnswerText = question.orderItems.map((item, i) => `${i + 1}. ${item}`).join('; ');
+            userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.map((item, i) => `${i + 1}. ${item}`).join('; ') : 'Cavab yoxdur';
+        }
+
+        return {
+            status: isCorrect ? 'correct' : 'incorrect',
+            userAnswerText,
+            correctAnswerText,
+            manualScore: null
+        };
+    };
+
+    const statusStyles = {
+        correct: { container: 'bg-green-50 border-l-4 border-green-400', icon: <CheckCircleIcon />, iconColor: 'text-green-500', textColor: 'text-green-700' },
+        incorrect: { container: 'bg-red-50 border-l-4 border-red-400', icon: <XCircleIcon />, iconColor: 'text-red-500', textColor: 'text-red-700' },
+        pending: { container: 'bg-yellow-50 border-l-4 border-yellow-400', icon: <ClockIcon />, iconColor: 'text-yellow-500', textColor: 'text-yellow-700' },
+    };
 
     return (
         <div className="animate-fade-in">
@@ -59,28 +123,13 @@ const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment,
                         );
 
                         const userAnswer = result.userAnswers[q.id];
-                        let isCorrect = false;
-                        let correctAnswerText = '';
-                        let userAnswerDisplay = '';
-                        let manualScore = null;
-
-                        if (originalQuestion.type === 'open') {
-                            isCorrect = userAnswer?.score > 0;
-                            userAnswerDisplay = userAnswer?.answer || 'Cavab yoxdur';
-                            manualScore = userAnswer?.score;
-                        } else {
-                            if (originalQuestion.type === 'single') { isCorrect = userAnswer === originalQuestion.options[originalQuestion.correctAnswers[0]]; correctAnswerText = originalQuestion.options[originalQuestion.correctAnswers[0]]; }
-                            else if (originalQuestion.type === 'multiple') { const correct = originalQuestion.correctAnswers.map(i => originalQuestion.options[i]).sort(); const user = userAnswer ? [...userAnswer].sort() : []; isCorrect = JSON.stringify(correct) === JSON.stringify(user); correctAnswerText = correct.join(', '); }
-                            else if (originalQuestion.type === 'textInput') { isCorrect = userAnswer && originalQuestion.correctAnswers[0].toLowerCase() === userAnswer.toLowerCase(); correctAnswerText = originalQuestion.correctAnswers[0]; }
-                            else if (originalQuestion.type === 'trueFalse') { isCorrect = userAnswer === originalQuestion.correctAnswer; correctAnswerText = originalQuestion.correctAnswer ? 'Doğru' : 'Yanlış'; }
-                            else if (originalQuestion.type === 'ordering') { isCorrect = JSON.stringify(userAnswer) === JSON.stringify(originalQuestion.orderItems); correctAnswerText = originalQuestion.orderItems.map((item, i) => `${i + 1}. ${item}`).join('; '); }
-                            userAnswerDisplay = Array.isArray(userAnswer) ? userAnswer.join(', ') : String(userAnswer ?? 'Cavab yoxdur');
-                        }
+                        const { status, userAnswerText, correctAnswerText, manualScore } = getQuestionStatusInfo(originalQuestion, userAnswer);
+                        const styles = statusStyles[status];
 
                         return (
-                            <div key={q.id} className={`p-3 sm:p-4 rounded-lg ${isCorrect ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
+                            <div key={q.id} className={`p-3 sm:p-4 rounded-lg ${styles.container}`}>
                                 <div className="flex items-start">
-                                    <span className={`mr-3 mt-1 ${isCorrect ? 'text-green-500' : 'text-red-500'}`}>{isCorrect ? <CheckCircleIcon /> : <XCircleIcon />}</span>
+                                    <span className={`mr-3 mt-1 ${styles.iconColor}`}>{styles.icon}</span>
                                     <h3 className="font-semibold text-base sm:text-lg text-gray-800 flex-1">{index + 1}. {originalQuestion.text}</h3>
                                 </div>
                                 
@@ -89,9 +138,25 @@ const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment,
                                 )}
 
                                 <div className="mt-3 pl-8 space-y-2 text-sm sm:text-base">
-                                    <p><strong>Tələbənin cavabı:</strong> <span className={isCorrect ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>{userAnswerDisplay}</span></p>
-                                    {!isCorrect && originalQuestion.type !== 'open' && <p><strong>Düzgün cavab:</strong> <span className="text-green-700 font-medium">{correctAnswerText}</span></p>}
-                                    {manualScore !== null && <p><strong>Yoxlayan tərəfindən verilən bal:</strong> <span className="font-bold text-blue-600">{manualScore} / {originalQuestion.points}</span></p>}
+                                    <p>
+                                        <strong>Tələbənin cavabı:</strong>{' '}
+                                        <span className={`${styles.textColor} font-medium`}>{userAnswerText}</span>
+                                    </p>
+                                    {status === 'incorrect' && (
+                                        <p>
+                                            <strong>Düzgün cavab:</strong>{' '}
+                                            <span className="text-green-700 font-medium">{correctAnswerText}</span>
+                                        </p>
+                                    )}
+                                    {status === 'pending' && (
+                                        <p className="font-semibold text-yellow-800">({correctAnswerText})</p>
+                                    )}
+                                    {manualScore !== null && (
+                                        <p>
+                                            <strong>Yoxlayan tərəfindən verilən bal:</strong>{' '}
+                                            <span className="font-bold text-blue-600">{manualScore} / {originalQuestion.points}</span>
+                                        </p>
+                                    )}
                                 </div>
 
                                 {originalQuestion.explanation && (

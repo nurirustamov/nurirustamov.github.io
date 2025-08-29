@@ -1,6 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import Button from './ui/Button';
-import { TrashIcon, PlusIcon, DuplicateIcon, LightbulbIcon } from '../assets/icons';
+import { TrashIcon, PlusIcon, DuplicateIcon, LightbulbIcon, LibraryIcon } from '../assets/icons';
+
+const XCircleIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const TagEditor = ({ tags = [], onUpdate }) => {
+    const [inputValue, setInputValue] = useState('');
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const newTag = inputValue.trim();
+            if (newTag && !tags.includes(newTag)) {
+                onUpdate([...tags, newTag]);
+            }
+            setInputValue('');
+        }
+    };
+
+    const removeTag = (tagToRemove) => {
+        onUpdate(tags.filter(tag => tag !== tagToRemove));
+    };
+
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Teqlər (Enter və ya vergül ilə əlavə et)</label>
+            <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-md bg-white">
+                {tags.map((tag, index) => (
+                    <span key={index} className="flex items-center gap-1 bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                        {tag}
+                        <button onClick={() => removeTag(tag)} className="text-orange-600 hover:text-orange-800">
+                            <XCircleIcon className="h-4 w-4" />
+                        </button>
+                    </span>
+                ))}
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Yeni teq əlavə et..."
+                    className="flex-1 bg-transparent outline-none p-1 text-sm"
+                />
+            </div>
+        </div>
+    );
+};
 
 const AnswerEditor = ({ question, onUpdate }) => {
     const handleOptionChange = (index, value) => {
@@ -80,7 +129,7 @@ const AnswerEditor = ({ question, onUpdate }) => {
                 </div>
             );
         case 'ordering':
-             return (
+            return (
                 <div>
                     <h4 className="font-semibold text-gray-800 mb-3">Sıralama üçün elementlər (düzgün ardıcıllıqla)</h4>
                     <div className="space-y-2">
@@ -95,7 +144,7 @@ const AnswerEditor = ({ question, onUpdate }) => {
                     <Button onClick={addOrderItem} variant="secondary" className="mt-3 text-sm"><PlusIcon /> Element əlavə et</Button>
                 </div>
             );
-        case 'open': // Новый тип вопроса
+        case 'open':
             return (
                 <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm flex items-center gap-2">
                     <LightbulbIcon className="w-5 h-5" />
@@ -106,7 +155,7 @@ const AnswerEditor = ({ question, onUpdate }) => {
     }
 };
 
-const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) => {
+const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSaveToBank }) => {
     const [localQuestion, setLocalQuestion] = useState(question);
 
     useEffect(() => {
@@ -128,6 +177,10 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) =>
         setLocalQuestion(prev => ({ ...prev, [name]: processedValue }));
     };
 
+    const handleTagsChange = (newTags) => {
+        setLocalQuestion(prev => ({ ...prev, tags: newTags }));
+    };
+
     return (
         <div className="border border-gray-200 rounded-lg shadow-sm mb-6 bg-white relative">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50 rounded-t-lg">
@@ -141,17 +194,18 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) =>
                             <option value="textInput">Mətn daxil etmə</option>
                             <option value="trueFalse">Doğru/Yanlış</option>
                             <option value="ordering">Sıralama</option>
-                            <option value="open">Açıq Sual</option> {/* Новая опция */}
+                            <option value="open">Açıq Sual</option>
                         </select>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-xs font-medium text-gray-500">Ballar</label>
                         <input type="number" name="points" value={localQuestion.points || 1} onChange={handleInputChange} min="1" className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm text-xs p-1" />
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={onDuplicate} variant="secondary" className="!p-2"><DuplicateIcon /></Button>
-                    <Button onClick={onDelete} variant="danger" className="!p-2"><TrashIcon /></Button>
+                    <Button onClick={onSaveToBank} variant="secondary" className="!p-2" title="Sualı banka əlavə et"><LibraryIcon /></Button>
+                    <Button onClick={onDuplicate} variant="secondary" className="!p-2" title="Dublikat et"><DuplicateIcon /></Button>
+                    <Button onClick={onDelete} variant="danger" className="!p-2" title="Sualı sil"><TrashIcon /></Button>
                 </div>
             </div>
 
@@ -164,7 +218,8 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate }) =>
                     <label className="block text-sm font-medium text-gray-700">Şəkil URL-i (istəyə bağlı)</label>
                     <input type="text" name="imageUrl" value={localQuestion.imageUrl || ''} onChange={handleInputChange} placeholder="https://example.com/image.png" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
                 </div>
-                 <div>
+                <TagEditor tags={localQuestion.tags || []} onUpdate={handleTagsChange} />
+                <div>
                     <label className="block text-sm font-medium text-gray-700">İzah (istəyə bağlı)</label>
                     <textarea name="explanation" value={localQuestion.explanation || ''} onChange={handleInputChange} placeholder="Düzgün cavabın izahını bura daxil edin..." rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
                 </div>
