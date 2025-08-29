@@ -8,7 +8,9 @@ import Modal from './components/ui/Modal';
 import Toast from './components/ui/Toast';
 import WavingCat from './components/WavingCat';
 import Button from './components/ui/Button';
-import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, DotsVerticalIcon, MenuIcon, XIcon } from './assets/icons';
+import RecommendationCard from './components/ui/RecommendationCard';
+import AssignmentModal from './components/ui/AssignmentModal';
+import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, DotsVerticalIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon } from './assets/icons';
 
 // --- Страницы ---
 import AuthPage from './pages/AuthPage';
@@ -36,6 +38,18 @@ import CourseListPage from './pages/CourseListPage';
 import CourseEditorPage from './pages/CourseEditorPage';
 import PublicCourseListPage from './pages/PublicCourseListPage';
 import CourseViewPage from './pages/CourseViewPage';
+import LearningPathListPage from './pages/LearningPathListPage';
+import LearningPathEditorPage from './pages/LearningPathEditorPage';
+import PublicLearningPathListPage from './pages/PublicLearningPathListPage';
+import LearningPathViewPage from './pages/LearningPathViewPage';
+import FlashcardDeckListPage from './pages/FlashcardDeckListPage';
+import FlashcardDeckEditorPage from './pages/FlashcardDeckEditorPage';
+import PublicFlashcardDeckListPage from './pages/PublicFlashcardDeckListPage';
+import FlashcardStudyPage from './pages/FlashcardStudyPage';
+import StudentGroupListPage from './pages/StudentGroupListPage';
+import StudentGroupEditorPage from './pages/StudentGroupEditorPage';
+import MyAssignmentsPage from './pages/MyAssignmentsPage';
+
 
 // --- Компонент-обертка для защиты роутов ---
 const AdminRoute = ({ profile, showToast, children }) => {
@@ -299,7 +313,7 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
 
 // --- Компоненты-обертки для страниц (вынесены из App для стабильности) ---
 
-const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus }) => {
+const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus, onAssignRequest }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const queryParams = new URLSearchParams(location.search);
@@ -322,12 +336,13 @@ const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, o
         setShowArchived={handleSetShowArchived}
         isAdmin={isAdmin}
         onToggleStatus={onToggleStatus}
+        onAssignRequest={onAssignRequest}
     />;
 };
 
-const StatisticsPageWrapper = ({ results, quizzes, onReviewResult }) => {
+const StatisticsPageWrapper = ({ results, quizzes, onReviewResult, studentGroups }) => {
     const navigate = useNavigate();
-    return <StatisticsPage results={results} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={onReviewResult} />;
+    return <StatisticsPage results={results} onBack={() => navigate('/')} quizzes={quizzes} onReviewResult={onReviewResult} studentGroups={studentGroups} />;
 };
 
 const StudentReportPageWrapper = ({ results, onReviewResult, profile, showToast }) => {
@@ -391,7 +406,7 @@ const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, 
     <ArticleViewPage articles={articles} quizzes={quizzes} onStartQuiz={onStartQuiz} onMarkAsRead={onMarkAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />
 );
 
-const CourseEditorPageWrapper = ({ editingCourseDraft, setEditingCourseDraft, articles, quizzes, onSave, showToast }) => {
+const CourseEditorPageWrapper = ({ editingCourseDraft, setEditingCourseDraft, articles, quizzes, onSave, showToast, onAssignRequest }) => {
     if (!editingCourseDraft) return <div className="text-center py-12">Yüklənir...</div>;
     return <CourseEditorPage
         course={editingCourseDraft}
@@ -400,11 +415,27 @@ const CourseEditorPageWrapper = ({ editingCourseDraft, setEditingCourseDraft, ar
         quizzes={quizzes}
         onSave={onSave}
         showToast={showToast}
+        onAssignRequest={onAssignRequest}
     />;
 };
 
-const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResults, session }) => {
-    return <CourseViewPage courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} />;
+const LearningPathEditorPageWrapper = ({ editingLearningPathDraft, setEditingLearningPathDraft, courses, onSave, showToast }) => {
+    if (!editingLearningPathDraft) return <div className="text-center py-12">Yüklənir...</div>;
+    return <LearningPathEditorPage
+        path={editingLearningPathDraft}
+        onDraftChange={setEditingLearningPathDraft}
+        courses={courses}
+        onSave={onSave}
+        showToast={showToast}
+    />;
+};
+
+const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResults, session, profile }) => {
+    return <CourseViewPage courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />;
+};
+
+const LearningPathViewPageWrapper = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, session }) => {
+    return <LearningPathViewPage learningPaths={learningPaths} courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} />;
 };
 
 const QuizPageWrapper = ({
@@ -471,17 +502,28 @@ export default function App() {
     const [quizResults, setQuizResults] = useState([]);
     const [articles, setArticles] = useState([]);
     const [courses, setCourses] = useState([]);
+    const [learningPaths, setLearningPaths] = useState([]);
+    const [flashcardDecks, setFlashcardDecks] = useState([]);
+    const [userFlashcardReviews, setUserFlashcardReviews] = useState([]);
+    const [editingFlashcardDeckDraft, setEditingFlashcardDeckDraft] = useState(null);
+    const [studentGroups, setStudentGroups] = useState([]);
+    const [editingStudentGroupDraft, setEditingStudentGroupDraft] = useState(null);
+    const [userAssignments, setUserAssignments] = useState([]);
     const [articleProgress, setArticleProgress] = useState([]);
     const [completedCourses, setCompletedCourses] = useState([]);
     const [notifications, setNotifications] = useState([]);
     const [customPracticeQuiz, setCustomPracticeQuiz] = useState(null);
     const [editingCourseDraft, setEditingCourseDraft] = useState(null);
+    const [editingLearningPathDraft, setEditingLearningPathDraft] = useState(null);
     const [editingQuizDraft, setEditingQuizDraft] = useState(null);
     const [editingArticleDraft, setEditingArticleDraft] = useState(null);
     const [userAchievements, setUserAchievements] = useState([]);
     const [allAchievements, setAllAchievements] = useState([]);
     const [allUsers, setAllUsers] = useState([]); // For admin panel
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [nextCourseRecommendation, setNextCourseRecommendation] = useState(null);
+    const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+    const [assignmentData, setAssignmentData] = useState({ itemId: null, itemTitle: '', itemType: '' });
 
     const [lastResult, setLastResult] = useState(null);
     const [toast, setToast] = useState({ message: '', isVisible: false });
@@ -589,9 +631,28 @@ export default function App() {
                 setCompletedCourses(prev => [...prev, data]);
                 showToast(`Təbriklər! "${course.title}" kursunu tamamladınız!`);
                 await handleAddExperience(50); // Award 50 XP for course completion
+
+                // --- NEW RECOMMENDATION LOGIC ---
+                const parentPath = learningPaths.find(p => p.path_items.some(item => item.course_id === courseId));
+                if (parentPath) {
+                    const sortedItems = [...parentPath.path_items].sort((a, b) => a.order - b.order);
+                    const currentItemIndex = sortedItems.findIndex(item => item.course_id === courseId);
+
+                    if (currentItemIndex !== -1 && currentItemIndex < sortedItems.length - 1) {
+                        const nextItem = sortedItems[currentItemIndex + 1];
+                        const nextCourse = courses.find(c => c.id === nextItem.course_id);
+                        if (nextCourse) {
+                            setNextCourseRecommendation({
+                                pathTitle: parentPath.title,
+                                courseTitle: nextCourse.title,
+                                courseId: nextCourse.id
+                            });
+                        }
+                    }
+                }
             }
         }
-    }, [profile, completedCourses, courses, articleProgress, quizResults, handleAddExperience, showToast]);
+    }, [profile, completedCourses, courses, articleProgress, quizResults, handleAddExperience, showToast, learningPaths]);
 
     const fetchNotifications = useCallback(async () => {
         if (session?.user) {
@@ -706,6 +767,48 @@ export default function App() {
                 const { data: coursesData } = await coursesQuery.order('created_at', { ascending: false });
                 setCourses(coursesData || []);
 
+                let pathsQuery = supabase.from('learning_paths').select('*, path_items(*, courses(title))');
+                if (profileData?.role !== 'admin') {
+                    pathsQuery = pathsQuery.eq('is_published', true);
+                }
+                const { data: pathsData } = await pathsQuery.order('created_at', { ascending: false });
+                setLearningPaths(pathsData || []);
+
+                const { data: decksData } = await supabase.from('flashcard_decks').select('*, flashcards(*)').order('created_at', { ascending: false });
+                setFlashcardDecks(decksData || []);
+
+                const { data: reviewsData } = await supabase.from('user_flashcard_reviews').select('*').eq('user_id', session.user.id);
+                setUserFlashcardReviews(reviewsData || []);
+
+                const { data: groupsData } = await supabase.from('student_groups').select('*, members:group_memberships(*, profiles(*))');
+                setStudentGroups(groupsData || []);
+
+                // Fetch assignments based on user role
+                if (profileData.role === 'admin') {
+                    // Admins see all assignments
+                    const { data: assignmentsData } = await supabase.from('assignments').select('*');
+                    setUserAssignments(assignmentsData || []);
+                } else {
+                    // Students see assignments for them or their groups
+                    const { data: userGroupMemberships, error: groupsError } = await supabase
+                        .from('group_memberships')
+                        .select('group_id')
+                        .eq('user_id', session.user.id);
+
+                    if (groupsError) {
+                        showToast('Qrup tapşırıqları yüklənərkən xəta baş verdi.');
+                    }
+
+                    const userGroupIds = userGroupMemberships ? userGroupMemberships.map(m => m.group_id) : [];
+
+                    const filter = userGroupIds.length > 0
+                        ? `assigned_to_user_id.eq.${session.user.id},assigned_to_group_id.in.(${userGroupIds.join(',')})`
+                        : `assigned_to_user_id.eq.${session.user.id}`;
+
+                    const { data: assignmentsData } = await supabase.from('assignments').select('*').or(filter);
+                    setUserAssignments(assignmentsData || []);
+                }
+
                 const { data: progressData } = await supabase.from('user_article_progress').select('article_id').eq('user_id', session.user.id);
                 setArticleProgress(progressData || []);
 
@@ -733,6 +836,11 @@ export default function App() {
                 setCourses([]);
                 setCompletedCourses([]);
                 setNotifications([]);
+                setLearningPaths([]);
+                setFlashcardDecks([]);
+                setUserFlashcardReviews([]);
+                setStudentGroups([]);
+                setUserAssignments([]);
             }
         };
 
@@ -778,6 +886,46 @@ export default function App() {
             return false;
         }
         return true;
+    };
+
+    const handleAssignRequest = (itemId, itemTitle, itemType) => {
+        setAssignmentData({ itemId, itemTitle, itemType });
+        setIsAssignmentModalOpen(true);
+    };
+
+    const handleCreateAssignment = async ({ assignToType, assignToId, dueDate }) => {
+        if (!checkAdmin()) return;
+    
+        const newAssignment = {
+            assigned_by: session.user.id,
+            item_id: assignmentData.itemId,
+            item_type: assignmentData.itemType,
+            due_date: dueDate,
+            [assignToType === 'user' ? 'assigned_to_user_id' : 'assigned_to_group_id']: assignToId,
+        };
+    
+        const { data, error } = await supabase.from('assignments').insert(newAssignment).select().single();
+    
+        if (error) {
+            showToast(`Tapşırıq təyin edilərkən xəta: ${error.message}`);
+        } else {
+            showToast(`"${assignmentData.itemTitle}" uğurla təyin edildi.`);
+            setIsAssignmentModalOpen(false);
+
+            // Send notifications
+            const { error: rpcError } = await supabase.rpc('create_assignment_notification', {
+                assignment_id_in: data.id,
+                assigned_by_user_id_in: session.user.id,
+                target_user_id_in: assignToType === 'user' ? assignToId : null,
+            target_group_id_in: assignToType === 'group' ? Number(assignToId) : null,
+                item_title_in: assignmentData.itemTitle
+            });
+
+            if (rpcError) {
+                console.error('Error sending notification:', rpcError);
+                showToast('Tapşırıq təyin edildi, lakin bildiriş göndərilə bilmədi.');
+            }
+        }
     };
 
     const handleAddNewQuizRequest = async () => {
@@ -885,6 +1033,18 @@ export default function App() {
             const { error: courseError } = await supabase.from('courses').delete().eq('id', idToDelete);
             error = courseError;
             if (!error) setCourses(prev => prev.filter(c => c.id !== idToDelete));
+        } else if (type === 'path') {
+            const { error: pathError } = await supabase.from('learning_paths').delete().eq('id', idToDelete);
+            error = pathError;
+            if (!error) setLearningPaths(prev => prev.filter(p => p.id !== idToDelete));
+        } else if (type === 'deck') {
+            const { error: deckError } = await supabase.from('flashcard_decks').delete().eq('id', idToDelete);
+            error = deckError;
+            if (!error) setFlashcardDecks(prev => prev.filter(d => d.id !== idToDelete));
+        } else if (type === 'group') {
+            const { error: groupError } = await supabase.from('student_groups').delete().eq('id', idToDelete);
+            error = groupError;
+            if (!error) setStudentGroups(prev => prev.filter(g => g.id !== idToDelete));
         }
 
         if (error) {
@@ -1454,6 +1614,296 @@ export default function App() {
         }
     };
 
+    const handleNewLearningPath = () => {
+        if (!checkAdmin()) return;
+        setEditingLearningPathDraft({
+            title: 'Yeni Tədris Yolu',
+            description: '',
+            is_published: false,
+            items: []
+        });
+        navigate('/admin/paths/new');
+    };
+
+    const handleEditLearningPath = (pathId) => {
+        if (!checkAdmin()) return;
+        const pathTofind = learningPaths.find(p => p.id === pathId)
+        if (pathTofind) {
+            const draft = {
+                id: pathTofind.id,
+                title: pathTofind.title || '',
+                description: pathTofind.description || '',
+                is_published: pathTofind.is_published || false,
+                items: (pathTofind.path_items || []).sort((a, b) => a.order - b.order),
+            };
+            setEditingLearningPathDraft(draft);
+            navigate(`/admin/paths/edit/${pathId}`);
+        }
+    };
+
+    const handleSaveLearningPath = async (pathData) => {
+        if (!checkAdmin()) return;
+        const { items, ...pathCoreData } = pathData;
+        const pathDetails = {
+            title: pathCoreData.title,
+            description: pathCoreData.description,
+            author_id: session.user.id,
+            is_published: pathCoreData.is_published || false
+        };
+
+        let savedPath;
+        if (pathCoreData.id) {
+            const { data, error } = await supabase.from('learning_paths').update(pathDetails).eq('id', pathCoreData.id).select().single();
+            if (error) { showToast(`Tədris yolunu yeniləyərkən xəta: ${error.message}`); return; }
+            savedPath = data;
+        } else {
+            const { data, error } = await supabase.from('learning_paths').insert(pathDetails).select().single();
+            if (error) { showToast(`Tədris yolunu yaradarkən xəta: ${error.message}`); return; }
+            savedPath = data;
+        }
+
+        const { error: deleteError } = await supabase.from('path_items').delete().eq('path_id', savedPath.id);
+        if (deleteError) { showToast(`Tədris yolunun tərkibini yeniləyərkən xəta: ${deleteError.message}`); return; }
+
+        if (items && items.length > 0) {
+            const itemsToInsert = items.map((item, index) => ({
+                path_id: savedPath.id,
+                course_id: item.course_id,
+                order: index,
+            }));
+
+            if (itemsToInsert.length > 0) {
+                const { error: insertError } = await supabase.from('path_items').insert(itemsToInsert);
+                if (insertError) { showToast(`Tədris yolunun tərkibini yaradarkən xəta: ${insertError.message}`); return; }
+            }
+        }
+
+        const { data: finalPath } = await supabase.from('learning_paths').select('*, path_items(*, courses(title))').eq('id', savedPath.id).single();
+        if (!finalPath) {
+            showToast('Tədris yolu yadda saxlanıldı, lakin məlumatları yeniləmək mümkün olmadı. Səhifəni yeniləyin.');
+            navigate('/admin/paths');
+            return;
+        }
+        setLearningPaths(prev => {
+            const index = prev.findIndex(p => p.id === finalPath.id);
+            if (index !== -1) {
+                const newPaths = [...prev];
+                newPaths[index] = finalPath;
+                return newPaths;
+            } else {
+                return [finalPath, ...prev];
+            }
+        });
+        setEditingLearningPathDraft(null);
+        showToast('Tədris yolu uğurla yadda saxlandı!');
+        navigate('/admin/paths');
+    };
+
+    const handleToggleLearningPathStatus = async (pathId, newStatus) => {
+        if (!checkAdmin()) return;
+        const { data, error } = await supabase.from('learning_paths').update({ is_published: newStatus }).eq('id', pathId).select('*, path_items(*, courses(title))').single();
+        if (error) {
+            showToast('Statusu dəyişərkən xəta baş verdi.');
+        } else if (data) {
+            setLearningPaths(prev => prev.map(p => p.id === pathId ? data : p));
+            showToast(newStatus ? 'Tədris yolu dərc edildi!' : 'Tədris yolu gizlədildi.');
+        }
+    };
+
+    const handleNewFlashcardDeck = () => {
+        if (!checkAdmin()) return;
+        setEditingFlashcardDeckDraft({
+            title: 'Yeni Koloda',
+            description: '',
+            is_published: false,
+            flashcards: []
+        });
+        navigate('/admin/decks/new');
+    };
+
+    const handleEditFlashcardDeck = (deckId) => {
+        if (!checkAdmin()) return;
+        const deckToEdit = flashcardDecks.find(d => d.id === deckId);
+        if (deckToEdit) {
+            setEditingFlashcardDeckDraft(deckToEdit);
+            navigate(`/admin/decks/edit/${deckId}`);
+        }
+    };
+
+    const handleSaveFlashcardDeck = async (deckData) => {
+        if (!checkAdmin()) return;
+        const { flashcards, ...deckCoreData } = deckData;
+        const deckDetails = {
+            title: deckCoreData.title,
+            description: deckCoreData.description,
+            author_id: session.user.id,
+            is_published: deckCoreData.is_published || false
+        };
+
+        let savedDeck;
+        if (deckCoreData.id) {
+            const { data, error } = await supabase.from('flashcard_decks').update(deckDetails).eq('id', deckCoreData.id).select().single();
+            if (error) { showToast(`Kolodanı yeniləyərkən xəta: ${error.message}`); return; }
+            savedDeck = data;
+        } else {
+            const { data, error } = await supabase.from('flashcard_decks').insert(deckDetails).select().single();
+            if (error) { showToast(`Koloda yaradarkən xəta: ${error.message}`); return; }
+            savedDeck = data;
+        }
+
+        const cardsToUpsert = flashcards.map(fc => {
+            const card = {
+                deck_id: savedDeck.id,
+                front: fc.front,
+                back: fc.back,
+            };
+            if (typeof fc.id === 'number') {
+                card.id = fc.id;
+            }
+            return card;
+        });
+
+        if (cardsToUpsert.length > 0) {
+            const { error: upsertError } = await supabase.from('flashcards').upsert(cardsToUpsert);
+            if (upsertError) { showToast(`Kartları yadda saxlayarkən xəta: ${upsertError.message}`); return; }
+        }
+
+        const newCardIds = flashcards.map(fc => fc.id).filter(id => typeof id === 'number');
+        const originalDeck = flashcardDecks.find(d => d.id === savedDeck.id);
+        if (originalDeck) {
+            const idsToDelete = originalDeck.flashcards
+                .filter(fc => !newCardIds.includes(fc.id))
+                .map(fc => fc.id);
+            if (idsToDelete.length > 0) {
+                await supabase.from('flashcards').delete().in('id', idsToDelete);
+            }
+        }
+
+        const { data: finalDeck } = await supabase.from('flashcard_decks').select('*, flashcards(*)').eq('id', savedDeck.id).single();
+        if (!finalDeck) {
+            showToast('Koloda yadda saxlanıldı, lakin məlumatları yeniləmək mümkün olmadı.');
+            navigate('/admin/decks');
+            return;
+        }
+        setFlashcardDecks(prev => {
+            const index = prev.findIndex(d => d.id === finalDeck.id);
+            if (index !== -1) {
+                const newDecks = [...prev];
+                newDecks[index] = finalDeck;
+                return newDecks;
+            } else {
+                return [finalDeck, ...prev];
+            }
+        });
+        setEditingFlashcardDeckDraft(null);
+        showToast('Koloda uğurla yadda saxlandı!');
+        navigate('/admin/decks');
+    };
+
+    const handleToggleFlashcardDeckStatus = async (deckId, newStatus) => {
+        if (!checkAdmin()) return;
+        const { data, error } = await supabase.from('flashcard_decks').update({ is_published: newStatus }).eq('id', deckId).select('*, flashcards(*)').single();
+        if (error) {
+            showToast('Statusu dəyişərkən xəta baş verdi.');
+        } else if (data) {
+            setFlashcardDecks(prev => prev.map(d => d.id === deckId ? data : d));
+            showToast(newStatus ? 'Koloda dərc edildi!' : 'Koloda gizlədildi.');
+        }
+    };
+
+    const handleUpdateFlashcardReview = async (reviewData) => {
+        const { data, error } = await supabase
+            .from('user_flashcard_reviews')
+            .upsert({ ...reviewData, user_id: session.user.id }, { onConflict: 'user_id, card_id' })
+            .select()
+            .single();
+    
+        if (error) {
+            showToast(`Təkrar məlumatı yenilənərkən xəta: ${error.message}`);
+        } else if (data) {
+            setUserFlashcardReviews(prev => {
+                const index = prev.findIndex(r => r.card_id === data.card_id);
+                if (index !== -1) {
+                    const newReviews = [...prev];
+                    newReviews[index] = data;
+                    return newReviews;
+                } else {
+                    return [...prev, data];
+                }
+            });
+        }
+    };
+
+    const handleNewStudentGroup = () => {
+        if (!checkAdmin()) return;
+        setEditingStudentGroupDraft({
+            name: 'Yeni Qrup',
+            description: '',
+            members: []
+        });
+        navigate('/admin/groups/new');
+    };
+
+    const handleEditStudentGroup = (groupId) => {
+        if (!checkAdmin()) return;
+        const groupToEdit = studentGroups.find(g => g.id === groupId);
+        if (groupToEdit) {
+            setEditingStudentGroupDraft(groupToEdit);
+            navigate(`/admin/groups/edit/${groupId}`);
+        }
+    };
+
+    const handleSaveStudentGroup = async (groupData) => {
+        if (!checkAdmin()) return;
+        const { members, ...groupCoreData } = groupData;
+        const groupDetails = {
+            name: groupCoreData.name,
+            description: groupCoreData.description,
+            created_by: session.user.id
+        };
+
+        let savedGroup;
+        if (groupCoreData.id) {
+            const { data, error } = await supabase.from('student_groups').update(groupDetails).eq('id', groupCoreData.id).select().single();
+            if (error) { showToast(`Qrupu yeniləyərkən xəta: ${error.message}`); return; }
+            savedGroup = data;
+        } else {
+            const { data, error } = await supabase.from('student_groups').insert(groupDetails).select().single();
+            if (error) { showToast(`Qrup yaradarkən xəta: ${error.message}`); return; }
+            savedGroup = data;
+        }
+
+        const currentMemberIds = members.map(m => m.user_id);
+        const { error: deleteError } = await supabase.from('group_memberships').delete().eq('group_id', savedGroup.id).not('user_id', 'in', `(${currentMemberIds.join(',')})`);
+        if (deleteError) { showToast(`Qrup üzvlərini yeniləyərkən xəta: ${deleteError.message}`); }
+
+        const membersToUpsert = currentMemberIds.map(userId => ({ group_id: savedGroup.id, user_id: userId }));
+        if (membersToUpsert.length > 0) {
+            await supabase.from('group_memberships').upsert(membersToUpsert);
+        }
+
+        const { data: finalGroup } = await supabase.from('student_groups').select('*, members:group_memberships(*, profiles(*))').eq('id', savedGroup.id).single();
+        if (!finalGroup) {
+            showToast('Qrup yadda saxlanıldı, lakin məlumatları yeniləmək mümkün olmadı.');
+            navigate('/admin/groups');
+            return;
+        }
+
+        setStudentGroups(prev => {
+            const index = prev.findIndex(g => g.id === finalGroup.id);
+            if (index !== -1) {
+                const newGroups = [...prev];
+                newGroups[index] = finalGroup;
+                return newGroups;
+            } else {
+                return [finalGroup, ...prev];
+            }
+        });
+        setEditingStudentGroupDraft(null);
+        showToast('Qrup uğurla yadda saxlandı!');
+        navigate('/admin/groups');
+    };
+
     const fetchComments = async (targetId, targetType) => {
         const { data, error } = await supabase.from('comments').select(`*, profiles(id, first_name, last_name)`).eq(`${targetType}_id`, targetId).order('created_at', { ascending: true });
         if (error) {
@@ -1609,6 +2059,9 @@ export default function App() {
 
                                     {/* Desktop Navigation */}
                                     <nav className="hidden lg:flex items-center gap-2">
+                                        <Link to="/my-assignments"><Button as="span" variant="secondary"><ClipboardCheckIcon /><span className="ml-2">Tapşırıqlarım</span></Button></Link>
+                                        <Link to="/decks"><Button as="span" variant="secondary"><DuplicateIcon /><span className="ml-2">Kartlar</span></Button></Link>
+                                        <Link to="/paths"><Button as="span" variant="secondary"><PaperAirplaneIcon /><span className="ml-2">Tədris Yolları</span></Button></Link>
                                         <Link to="/courses"><Button as="span" variant="secondary"><CollectionIcon /><span className="ml-2">Kurslar</span></Button></Link>
                                         <Link to="/articles"><Button as="span" variant="secondary"><DocumentTextIcon /><span className="ml-2">Məqalələr</span></Button></Link>
                                         <Link to="/leaderboard"><Button as="span" variant="secondary"><LeaderboardIcon /><span className="ml-2">Reytinqlər</span></Button></Link>
@@ -1641,6 +2094,9 @@ export default function App() {
                                 {isMobileMenuOpen && (
                                     <div className="lg:hidden bg-white border-t">
                                         <nav className="flex flex-col p-4 space-y-2">
+                                            <Link to="/my-assignments" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ClipboardCheckIcon /><span className="ml-3">Tapşırıqlarım</span></Link>
+                                            <Link to="/decks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DuplicateIcon /><span className="ml-3">Kartlar</span></Link>
+                                            <Link to="/paths" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><PaperAirplaneIcon /><span className="ml-3">Tədris Yolları</span></Link>
                                             <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
                                             <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
                                             <Link to="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><LeaderboardIcon /><span className="ml-3">Reytinqlər</span></Link>
@@ -1660,8 +2116,17 @@ export default function App() {
                                 )}
                             </header>
                             <main className="container mx-auto px-4 py-6 md:py-8">
+                                <RecommendationCard
+                                    recommendation={nextCourseRecommendation}
+                                    onStart={(courseId) => {
+                                        navigate(`/courses/${courseId}`);
+                                        setNextCourseRecommendation(null);
+                                    }}
+                                    onClose={() => setNextCourseRecommendation(null)}
+                                />
                                 <Routes>
-                                    <Route path="/" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} />} />
+                                    <Route path="/" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} />} />
+                                    <Route path="/my-assignments" element={<MyAssignmentsPage assignments={userAssignments} quizzes={quizzes} courses={courses} onStartQuiz={handleStartQuizRequest} quizResults={quizResults} completedCourses={completedCourses} />} />
                                     <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} profile={profile} showToast={showToast} />} />
                                     <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                     <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
@@ -1669,22 +2134,35 @@ export default function App() {
                                     <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} />} />
                                     <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                     <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
-                                    <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
+                                    <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />} />
+                                    <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} />} />
+                                    <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
+                                    <Route path="/decks" element={<PublicFlashcardDeckListPage decks={flashcardDecks} userReviews={userFlashcardReviews} />} />
+                                    <Route path="/decks/:deckId/study" element={<FlashcardStudyPage decks={flashcardDecks} userReviews={userFlashcardReviews} onUpdateReview={handleUpdateFlashcardReview} />} />
 
                                     {/* === ADMIN ROUTES === */}
-                                    <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} />} /></Routes></AdminRoute>} />
+                                    <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} studentGroups={studentGroups} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} />} /></Routes></AdminRoute>} />
                                     <Route path="/question-bank" element={<AdminRoute profile={profile} showToast={showToast}><QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} /></AdminRoute>} />
                                     <Route path="/manual-review/:resultId" element={<AdminRoute profile={profile} showToast={showToast}><ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} /></AdminRoute>} />
                                     <Route path="/quiz/:id/edit" element={<AdminRoute profile={profile} showToast={showToast}><QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft, onSaveQuestionToBank: handleSaveQuestionFromEditorToBank }} /></AdminRoute>} />
                                     <Route path="/admin" element={<AdminRoute profile={profile} showToast={showToast}><AdminPage /></AdminRoute>}>
                                         <Route index element={<AdminDashboardPage stats={adminDashboardStats} />} />
                                         <Route path="users" element={<UserManagementPage users={allUsers} onRoleChange={handleRoleChange} currentUserId={profile?.id} />} />
+                                        <Route path="groups" element={<StudentGroupListPage groups={studentGroups} onAddNew={handleNewStudentGroup} onEdit={handleEditStudentGroup} onDelete={(id) => handleDeleteRequest(id, 'group')} />} />
+                                        <Route path="groups/new" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
+                                        <Route path="groups/edit/:groupId" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
                                         <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} />} />
                                         <Route path="articles/new" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
                                         <Route path="articles/edit/:articleId" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
-                                        <Route path="courses" element={<CourseListPage courses={courses} onEdit={handleEditCourse} onDelete={(id) => handleDeleteRequest(id, 'course')} onAddNew={handleNewCourse} onToggleStatus={handleToggleCourseStatus} />} />
+                                        <Route path="courses" element={<CourseListPage courses={courses} onEdit={handleEditCourse} onDelete={(id) => handleDeleteRequest(id, 'course')} onAddNew={handleNewCourse} onToggleStatus={handleToggleCourseStatus} onAssignRequest={handleAssignRequest} />} />
                                         <Route path="courses/new" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
                                         <Route path="courses/edit/:courseId" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
+                                        <Route path="paths" element={<LearningPathListPage paths={learningPaths} onEdit={handleEditLearningPath} onDelete={(id) => handleDeleteRequest(id, 'path')} onAddNew={handleNewLearningPath} onToggleStatus={handleToggleLearningPathStatus} />} />
+                                        <Route path="paths/new" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
+                                        <Route path="paths/edit/:pathId" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
+                                        <Route path="decks" element={<FlashcardDeckListPage decks={flashcardDecks} onEdit={handleEditFlashcardDeck} onDelete={(id) => handleDeleteRequest(id, 'deck')} onAddNew={handleNewFlashcardDeck} onToggleStatus={handleToggleFlashcardDeckStatus} />} />
+                                        <Route path="decks/new" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
+                                        <Route path="decks/edit/:deckId" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
                                     </Route>
 
                                     {/* === PUBLIC & USER ROUTES === */}
@@ -1706,6 +2184,7 @@ export default function App() {
             <ModeSelectionModal isOpen={isModeSelectionModalOpen} onClose={() => setIsModeSelectionModalOpen(false)} onSelect={handleModeSelected} />
             <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportQuestions} showToast={showToast} />
             <AddFromBankModal isOpen={isAddFromBankModalOpen} onClose={() => setIsAddFromBankModalOpen(false)} onAdd={handleAddQuestionsFromBank} showToast={showToast} questionBank={questionBank} />
+            <AssignmentModal isOpen={isAssignmentModalOpen} onClose={() => setIsAssignmentModalOpen(false)} onAssign={handleCreateAssignment} allUsers={allUsers} studentGroups={studentGroups} itemTitle={assignmentData.itemTitle} />
             <WavingCat />
         </>
     );

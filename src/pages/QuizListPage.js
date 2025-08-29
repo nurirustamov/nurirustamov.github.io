@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, EyeIcon, EyeOffIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon, LockClosedIcon } from '../assets/icons';
+import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, EyeIcon, EyeOffIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon, LockClosedIcon, ClipboardCheckIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -28,7 +28,7 @@ const getQuizStatus = (quiz) => {
     return { text: 'Aktiv', color: 'green', active: true };
 };
 
-const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest, onDeleteRequest, isAdmin, onToggleStatus }) => {
+const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest, onDeleteRequest, isAdmin, onToggleStatus, onAssignRequest }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
@@ -92,6 +92,7 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
                         <Button onClick={() => setMenuOpen(!menuOpen)} variant="secondary" className="h-full"><DotsVerticalIcon /></Button>
                         {menuOpen && (
                             <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                <button onClick={() => { onAssignRequest(quiz.id, quiz.title, 'quiz'); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"><ClipboardCheckIcon /> <span className="ml-2">Təyin et</span></button>
                                 <button onClick={() => { onToggleStatus(quiz.id, !quiz.is_published); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
                                     {quiz.is_published ? <EyeOffIcon /> : <EyeIcon />}
                                     <span className="ml-2">{quiz.is_published ? 'Qaralamaya sal' : 'Dərc et'}</span>
@@ -111,7 +112,7 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
     );
 };
 
-const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus }) => {
+const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus, onAssignRequest }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date_desc');
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -219,6 +220,7 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                             onDeleteRequest={onDeleteRequest}
                             isAdmin={isAdmin}
                             onToggleStatus={onToggleStatus}
+                            onAssignRequest={onAssignRequest}
                         />
                     ))}
                 </div>

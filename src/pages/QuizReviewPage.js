@@ -10,7 +10,6 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile, fet
         if (question.type === 'open') {
             return {
                 status: 'pending',
-                isCorrect: false, // Технически не оценено, но для логики считаем нейтральным
                 userAnswerText: userAnswer || 'Cavab yoxdur',
                 correctAnswerText: 'Yoxlama gözlənilir'
             };
@@ -44,7 +43,7 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile, fet
             userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.map((item, i) => `${i + 1}. ${item}`).join('; ') : 'Cavab yoxdur';
         }
 
-        return { status: isCorrect ? 'correct' : 'incorrect', isCorrect, userAnswerText, correctAnswerText };
+        return { status: isCorrect ? 'correct' : 'incorrect', userAnswerText, correctAnswerText };
     };
 
     const statusStyles = {
@@ -67,7 +66,7 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile, fet
                 <div className="space-y-6">
                     {questionOrder.map((q, index) => {
                         const userAnswer = userAnswers[q.id];
-                        const { status, isCorrect, userAnswerText, correctAnswerText } = getQuestionStatus(q, userAnswer);
+                        const { status, userAnswerText, correctAnswerText } = getQuestionStatus(q, userAnswer);
                         const styles = statusStyles[status];
 
                         return (
@@ -76,7 +75,7 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile, fet
                                     <span className={`mr-3 mt-1 ${styles.iconColor}`}>{styles.icon}</span>
                                     <h3 className="font-semibold text-base sm:text-lg text-gray-800 flex-1">{index + 1}. {q.text}</h3>
                                 </div>
-                                
+
                                 {q.imageUrl && (
                                     <div className="pl-8 mt-3">
                                         <img src={q.imageUrl} alt="Question illustration" className="rounded-lg max-h-40 sm:max-h-60 w-auto mx-auto" onError={(e) => e.target.style.display = 'none'} />
@@ -94,7 +93,7 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile, fet
                                             <span className="text-green-700 font-medium">{correctAnswerText}</span>
                                         </p>
                                     )}
-                                     {status === 'pending' && (
+                                    {status === 'pending' && (
                                         <p className="font-semibold text-yellow-800">{correctAnswerText}</p>
                                     )}
                                 </div>
@@ -111,13 +110,13 @@ const QuizReviewPage = ({ quiz, userAnswers, questionOrder, onBack, profile, fet
                                     </div>
                                 )}
                                 <div className="mt-4 pt-4 pl-8 border-t border-gray-300/70">
-                                    <Comments 
-                                        targetId={q.id.toString()} 
+                                    <Comments
+                                        targetId={q.id.toString()}
                                         targetType="question"
-                                        profile={profile} 
-                                        fetchComments={fetchComments} 
-                                        postComment={postComment} 
-                                        deleteComment={deleteComment} 
+                                        profile={profile}
+                                        fetchComments={fetchComments}
+                                        postComment={postComment}
+                                        deleteComment={deleteComment}
                                     />
                                 </div>
                             </div>

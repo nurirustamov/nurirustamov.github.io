@@ -3,11 +3,6 @@ import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import { DocumentTextIcon, CheckCircleIcon, TagIcon, SearchIcon } from '../assets/icons';
 
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('az-AZ');
-};
-
 const PublicArticleListPage = ({ articles, articleProgress }) => {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -35,7 +30,7 @@ const PublicArticleListPage = ({ articles, articleProgress }) => {
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><SearchIcon /></span>
                             <input type="text" placeholder="Modul adına görə axtarış..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition" />
                         </div>
-                        <select 
+                        <select
                             value={selectedCategory}
                             onChange={e => setSelectedCategory(e.target.value)}
                             className="py-2 px-4 border-2 border-gray-200 rounded-lg bg-white w-full md:w-auto"

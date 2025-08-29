@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import Card from '../components/ui/Card';
-import { UsersIcon, DocumentTextIcon, CollectionIcon, ChartBarIcon as DashboardIcon } from '../assets/icons';
+import { UsersIcon, DocumentTextIcon, CollectionIcon, ChartBarIcon as DashboardIcon, PaperAirplaneIcon, DuplicateIcon, UserGroupIcon } from '../assets/icons';
 
 const AdminPage = () => {
     const navLinkClasses = ({ isActive }) => 
@@ -22,6 +22,10 @@ const AdminPage = () => {
                             <UsersIcon className="w-5 h-5 mr-3" />
                             İstifadəçi İdarəetməsi
                         </NavLink>
+                        <NavLink to="/admin/groups" className={navLinkClasses}>
+                            <UserGroupIcon className="w-5 h-5 mr-3" />
+                            Tələbə Qrupları
+                        </NavLink>
                         <NavLink to="/admin/articles" className={navLinkClasses}>
                             <DocumentTextIcon className="w-5 h-5 mr-3" />
                             Məqalələr
@@ -29,6 +33,14 @@ const AdminPage = () => {
                         <NavLink to="/admin/courses" className={navLinkClasses}>
                             <CollectionIcon className="w-5 h-5 mr-3" />
                             Kurslar
+                        </NavLink>
+                        <NavLink to="/admin/paths" className={navLinkClasses}>
+                            <PaperAirplaneIcon className="w-5 h-5 mr-3" />
+                            Tədris Yolları
+                        </NavLink>
+                        <NavLink to="/admin/decks" className={navLinkClasses}>
+                            <DuplicateIcon className="w-5 h-5 mr-3" />
+                            Kart Kolodaları
                         </NavLink>
                     </nav>
                 </Card>

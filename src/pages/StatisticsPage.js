@@ -288,10 +288,11 @@ const ResultsTable = ({ results, onReviewResult, onSort, sortBy, sortDirection }
 };
 
 // --- Main Component ---
-const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
+const StatisticsPage = ({ results, onBack, quizzes, onReviewResult, studentGroups = [] }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedQuizFilter, setSelectedQuizFilter] = useState('all');
+    const [selectedGroupFilter, setSelectedGroupFilter] = useState('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [sortBy, setSortBy] = useState('date');
     const [sortDirection, setSortDirection] = useState('desc');
@@ -300,6 +301,15 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
 
     const filteredResults = useMemo(() => {
         let filtered = results;
+
+        if (selectedGroupFilter !== 'all') {
+            const selectedGroup = studentGroups.find(g => g.id === Number(selectedGroupFilter));
+            if (selectedGroup) {
+                const memberIds = new Set((selectedGroup.members || []).map(m => m.user_id));
+                filtered = filtered.filter(r => memberIds.has(r.user_id));
+            }
+        }
+
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
             filtered = filtered.filter(r => `${r.userName} ${r.userSurname}`.toLowerCase().includes(lowerCaseSearchTerm) || r.quizTitle.toLowerCase().includes(lowerCaseSearchTerm));
@@ -314,7 +324,7 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
             filtered = filtered.filter(r => new Date(r.created_at) <= new Date(dateRange.end).setHours(23, 59, 59, 999));
         }
         return filtered;
-    }, [results, searchTerm, selectedQuizFilter, dateRange]);
+    }, [results, searchTerm, selectedQuizFilter, dateRange, selectedGroupFilter, studentGroups]);
 
     const pendingResults = useMemo(() => filteredResults.filter(r => r.status === 'pending_review'), [filteredResults]);
     const completedResults = useMemo(() => filteredResults.filter(r => r.status !== 'pending_review'), [filteredResults]);
@@ -461,6 +471,13 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult }) => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Ada görə axtarış</label>
                                 <input type="text" placeholder="Tələbə axtar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Qrupa görə filtr</label>
+                                <select value={selectedGroupFilter} onChange={e => setSelectedGroupFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="all">Bütün Tələbələr</option>
+                                    {studentGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Testə görə filtr</label>
