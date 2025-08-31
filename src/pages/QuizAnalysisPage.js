@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon } from '../assets/icons';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
@@ -89,7 +89,7 @@ const QuestionRespondersModal = ({ isOpen, onClose, question, results }) => {
     );
 };
 
-const QuizAnalysisPage = ({ quizzes, results }) => {
+const QuizAnalysisPage = ({ quizzes, results, allUsers }) => {
     const { quizId } = useParams();
     const [analyzingQuestion, setAnalyzingQuestion] = useState(null);
 
@@ -125,6 +125,32 @@ const QuizAnalysisPage = ({ quizzes, results }) => {
 
     }, [quiz, quizResults]);
 
+    const quizLeaderboard = useMemo(() => {
+        if (!quizResults || !allUsers) return [];
+
+        const userBestScores = {};
+        quizResults.forEach(result => {
+            if (!userBestScores[result.user_id] || result.score > userBestScores[result.user_id].score) {
+                userBestScores[result.user_id] = {
+                    score: result.score,
+                    percentage: result.percentage,
+                    user_id: result.user_id
+                };
+            }
+        });
+
+        return Object.values(userBestScores)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10)
+            .map(entry => {
+                const userProfile = allUsers.find(u => u.id === entry.user_id);
+                return {
+                    ...entry,
+                    name: userProfile ? `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() : 'Naməlum istifadəçi'
+                };
+            });
+    }, [quizResults, allUsers]);
+
     if (!quiz) return <Card><p className="text-center">Test tapılmadı.</p></Card>;
     if (!analysis) return <Card><p className="text-center">Bu test üçün heç bir nəticə tapılmadı.</p></Card>;
 
@@ -155,6 +181,28 @@ const QuizAnalysisPage = ({ quizzes, results }) => {
                 <Card className="text-center"><h3 className="font-semibold">Ən Yüksək</h3><p className="text-3xl font-bold text-green-600">{analysis.highestScore}%</p></Card>
                 <Card className="text-center"><h3 className="font-semibold">Ən Aşağı</h3><p className="text-3xl font-bold text-red-600">{analysis.lowestScore}%</p></Card>
             </div>
+
+            <Card>
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><TrophyIcon /> Bu Test üzrə Liderlər</h3>
+                {quizLeaderboard.length > 0 ? (
+                    <ol className="space-y-2">
+                        {quizLeaderboard.map((user, index) => (
+                            <li key={user.user_id} className="flex items-center justify-between p-2 rounded-md bg-gray-50">
+                                <div className="flex items-center gap-3">
+                                    <span className="font-bold text-gray-400 w-6 text-center">{index + 1}</span>
+                                    <span className="flex items-center gap-2">
+                                        {index === 0 ? <GoldMedalIcon /> : index === 1 ? <SilverMedalIcon /> : index === 2 ? <BronzeMedalIcon /> : <TrophyIcon className="w-5 h-5 text-gray-400" />}
+                                        <Link to={`/student/${user.user_id}`} className="font-semibold text-blue-600 hover:underline">{user.name}</Link>
+                                    </span>
+                                </div>
+                                <span className="font-bold text-orange-500">{user.score} bal ({user.percentage}%)</span>
+                            </li>
+                        ))}
+                    </ol>
+                ) : (
+                    <p className="text-gray-500">Bu test üçün reytinq məlumatı yoxdur.</p>
+                )}
+            </Card>
 
             <Card>
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Nəticələrin Paylanması</h3>

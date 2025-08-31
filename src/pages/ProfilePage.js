@@ -58,7 +58,7 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
 
         const { data, error } = await supabase
             .from('profiles')
-            .update({ 
+            .update({
                 first_name: firstName,
                 last_name: lastName,
                 username: `${firstName} ${lastName}`
@@ -109,8 +109,8 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
     return (
         <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Mənim Profilim</h1>
-                 <Link to={`/student/${session.user.id}`}>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Mənim Profilim</h1>
+                <Link to={`/student/${session.user.id}`}>
                     <Button variant="primary"><ChartBarIcon /> Mənim Nəticələrim</Button>
                 </Link>
             </div>
@@ -119,7 +119,7 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
             <Card>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
                     <div className="md:col-span-2">
-                         <LevelProgressBar experience={experience} />
+                        <LevelProgressBar experience={experience} />
                     </div>
                     <div className="flex justify-around md:justify-end gap-6 text-center">
                         <div className="flex flex-col items-center">
@@ -130,7 +130,7 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
                             <span className="text-sm text-gray-500">Təcrübə Xalı</span>
                         </div>
                         <div className="flex flex-col items-center">
-                             <div className="flex items-center gap-2 text-2xl font-bold text-red-500">
+                            <div className="flex items-center gap-2 text-2xl font-bold text-red-500">
                                 <FireIcon />
                                 <span>{dailyStreak}</span>
                             </div>
@@ -165,7 +165,7 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
                     <p className="text-green-600 font-semibold">Təbrik edirik! Bütün mümkün nailiyyətləri qazanmısınız!</p>
                 )}
             </Card>
-            
+
             <Card>
                 <h2 className="text-xl font-bold mb-4">Şəxsi Məlumatlar</h2>
                 <form onSubmit={handleProfileUpdate} className="space-y-4">
@@ -188,7 +188,7 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
             <Card>
                 <h2 className="text-xl font-bold mb-4">Parolu Dəyiş</h2>
                 <form onSubmit={handlePasswordUpdate} className="space-y-4">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Yeni Parol</label>
                             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />

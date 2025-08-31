@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Routes, Route, useNavigate, useParams, Link, useLocation, createSearchParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Routes, Route, useNavigate, useParams, Link, useLocation, createSearchParams, useSearchParams } from 'react-router-dom';
 import Papa from 'papaparse';
 import { supabase } from './supabaseClient';
 
@@ -9,47 +9,58 @@ import Toast from './components/ui/Toast';
 import WavingCat from './components/WavingCat';
 import Button from './components/ui/Button';
 import RecommendationCard from './components/ui/RecommendationCard';
+import SmartRecommendationCard from './components/ui/SmartRecommendationCard';
 import AssignmentModal from './components/ui/AssignmentModal';
-import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, DotsVerticalIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon } from './assets/icons';
+import GlobalSearch from './components/ui/GlobalSearch';
+import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon } from './assets/icons';
 
-// --- Страницы ---
-import AuthPage from './pages/AuthPage';
-import ProfilePage from './pages/ProfilePage';
-import QuizListPage from './pages/QuizListPage';
-import QuizEditorPage from './pages/QuizEditorPage';
-import TakeQuizPage from './pages/TakeQuizPage';
-import QuizResultPage from './pages/QuizResultPage';
-import QuizReviewPage from './pages/QuizReviewPage';
-import StatisticsPage from './pages/StatisticsPage';
-import StudentReportPage from './pages/StudentReportPage';
-import QuestionBankPage from './pages/QuestionBankPage';
-import PastQuizReviewPage from './pages/PastQuizReviewPage';
-import ManualReviewPage from './pages/ManualReviewPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import AdminPage from './pages/AdminPage';
-import UserManagementPage from './pages/UserManagementPage';
-import QuizAnalysisPage from './pages/QuizAnalysisPage';
-import ArticleListPage from './pages/ArticleListPage';
-import ArticleEditorPage from './pages/ArticleEditorPage';
-import PublicArticleListPage from './pages/PublicArticleListPage';
-import ArticleViewPage from './pages/ArticleViewPage';
-import CourseListPage from './pages/CourseListPage';
-import CourseEditorPage from './pages/CourseEditorPage';
-import PublicCourseListPage from './pages/PublicCourseListPage';
-import CourseViewPage from './pages/CourseViewPage';
-import LearningPathListPage from './pages/LearningPathListPage';
-import LearningPathEditorPage from './pages/LearningPathEditorPage';
-import PublicLearningPathListPage from './pages/PublicLearningPathListPage';
-import LearningPathViewPage from './pages/LearningPathViewPage';
-import FlashcardDeckListPage from './pages/FlashcardDeckListPage';
-import FlashcardDeckEditorPage from './pages/FlashcardDeckEditorPage';
-import PublicFlashcardDeckListPage from './pages/PublicFlashcardDeckListPage';
-import FlashcardStudyPage from './pages/FlashcardStudyPage';
-import StudentGroupListPage from './pages/StudentGroupListPage';
-import StudentGroupEditorPage from './pages/StudentGroupEditorPage';
-import MyAssignmentsPage from './pages/MyAssignmentsPage';
+// --- Lazy Loaded Pages ---
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const QuizListPage = lazy(() => import('./pages/QuizListPage'));
+const QuizEditorPage = lazy(() => import('./pages/QuizEditorPage'));
+const TakeQuizPage = lazy(() => import('./pages/TakeQuizPage'));
+const QuizResultPage = lazy(() => import('./pages/QuizResultPage'));
+const QuizReviewPage = lazy(() => import('./pages/QuizReviewPage'));
+const StatisticsPage = lazy(() => import('./pages/StatisticsPage'));
+const StudentReportPage = lazy(() => import('./pages/StudentReportPage'));
+const QuestionBankPage = lazy(() => import('./pages/QuestionBankPage'));
+const PastQuizReviewPage = lazy(() => import('./pages/PastQuizReviewPage'));
+const ManualReviewPage = lazy(() => import('./pages/ManualReviewPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const UserManagementPage = lazy(() => import('./pages/UserManagementPage'));
+const QuizAnalysisPage = lazy(() => import('./pages/QuizAnalysisPage'));
+const ArticleListPage = lazy(() => import('./pages/ArticleListPage'));
+const ArticleEditorPage = lazy(() => import('./pages/ArticleEditorPage'));
+const PublicArticleListPage = lazy(() => import('./pages/PublicArticleListPage'));
+const ArticleViewPage = lazy(() => import('./pages/ArticleViewPage'));
+const CourseListPage = lazy(() => import('./pages/CourseListPage'));
+const CourseEditorPage = lazy(() => import('./pages/CourseEditorPage'));
+const PublicCourseListPage = lazy(() => import('./pages/PublicCourseListPage'));
+const CourseViewPage = lazy(() => import('./pages/CourseViewPage'));
+const LearningPathListPage = lazy(() => import('./pages/LearningPathListPage'));
+const LearningPathEditorPage = lazy(() => import('./pages/LearningPathEditorPage'));
+const PublicLearningPathListPage = lazy(() => import('./pages/PublicLearningPathListPage'));
+const LearningPathViewPage = lazy(() => import('./pages/LearningPathViewPage'));
+const GlobalSearchPage = lazy(() => import('./pages/GlobalSearchPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const FlashcardDeckListPage = lazy(() => import('./pages/FlashcardDeckListPage'));
+const FlashcardDeckEditorPage = lazy(() => import('./pages/FlashcardDeckEditorPage'));
+const PublicFlashcardDeckListPage = lazy(() => import('./pages/PublicFlashcardDeckListPage'));
+const FlashcardStudyPage = lazy(() => import('./pages/FlashcardStudyPage'));
+const StudentGroupListPage = lazy(() => import('./pages/StudentGroupListPage'));
+const StudentGroupEditorPage = lazy(() => import('./pages/StudentGroupEditorPage'));
+const MyAssignmentsPage = lazy(() => import('./pages/MyAssignmentsPage'));
+const QuestManagementPage = lazy(() => import('./pages/QuestManagementPage'));
+const GroupAnalysisPage = lazy(() => import('./pages/GroupAnalysisPage'));
 
+const SuspenseFallback = () => (
+    <div className="w-full h-screen flex items-center justify-center bg-orange-50">
+        <p className="text-lg text-orange-600">Yüklənir...</p>
+    </div>
+);
 
 // --- Компонент-обертка для защиты роутов ---
 const AdminRoute = ({ profile, showToast, children }) => {
@@ -69,41 +80,6 @@ const AdminRoute = ({ profile, showToast, children }) => {
 
     return children;
 };
-
-// --- Новый компонент выпадающего меню для админа ---
-const AdminDropdown = ({ onQuestionBankRequest }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const menuRef = useRef(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={menuRef}>
-            <Button variant="secondary" onClick={() => setIsOpen(!isOpen)}><DotsVerticalIcon /></Button>
-            {isOpen && (
-                <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                    <div className="py-1">
-                        <Link to="/stats" onClick={() => setIsOpen(false)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            <ChartBarIcon /> <span className="ml-3">Statistika</span>
-                        </Link>
-                        <button onClick={() => { onQuestionBankRequest(); setIsOpen(false); }} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            <LibraryIcon /> <span className="ml-3">Suallar Bankı</span>
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
 
 // --- Новый компонент уведомлений ---
 const NotificationBell = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClearAllNotifications }) => {
@@ -368,12 +344,10 @@ const StudentReportPageWrapper = ({ results, onReviewResult, profile, showToast 
     return <StudentReportPage results={results} onBack={() => navigate('/stats')} onReviewResult={onReviewResult} />;
 };
 
-const QuestionBankPageWrapper = ({ questionBank, onSave, onDelete, showToast }) => (
-    <QuestionBankPage questionBank={questionBank} onSave={onSave} onDelete={onDelete} showToast={showToast} />
-);
+const QuestionBankPageWrapper = ({ questionBank, onSave, onDelete, showToast }) => ( <QuestionBankPage questionBank={questionBank} onSave={onSave} onDelete={onDelete} showToast={showToast} /> );
 
-const LeaderboardPageWrapper = ({ results, profile }) => (
-    <LeaderboardPage results={results} profile={profile} />
+const LeaderboardPageWrapper = ({ results, profile, allUsers }) => (
+    <LeaderboardPage results={results} profile={profile} allUsers={allUsers} />
 );
 
 const PastQuizReviewPageWrapper = ({ quizResults, quizzes, profile, fetchComments, postComment, deleteComment }) => {
@@ -385,12 +359,10 @@ const PastQuizReviewPageWrapper = ({ quizResults, quizzes, profile, fetchComment
     return <PastQuizReviewPage result={result} quiz={quiz} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
 };
 
-const ManualReviewPageWrapper = ({ results, quizzes, onUpdateResult }) => (
-    <ManualReviewPage results={results} quizzes={quizzes} onUpdateResult={onUpdateResult} />
-);
+const ManualReviewPageWrapper = ({ results, quizzes, onUpdateResult }) => ( <ManualReviewPage results={results} quizzes={quizzes} onUpdateResult={onUpdateResult} /> );
 
-const QuizAnalysisPageWrapper = ({ quizzes, results }) => (
-    <QuizAnalysisPage quizzes={quizzes} results={results} />
+const QuizAnalysisPageWrapper = ({ quizzes, results, allUsers }) => (
+    <QuizAnalysisPage quizzes={quizzes} results={results} allUsers={allUsers} />
 );
 
 const ArticleEditorPageWrapper = ({ onSave, showToast, ...props }) => {
@@ -437,7 +409,33 @@ const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResu
 const LearningPathViewPageWrapper = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, session }) => {
     return <LearningPathViewPage learningPaths={learningPaths} courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} />;
 };
+const GlobalSearchPageWrapper = ({ quizzes, courses, articles, learningPaths, onStartQuiz }) => {
+    const [searchParams] = useSearchParams();
+    const query = searchParams.get('q') || '';
 
+    const searchResults = useMemo(() => {
+        if (!query.trim()) {
+            return { quizzes: [], courses: [], articles: [], paths: [] };
+        }
+
+        const term = query.toLowerCase();
+
+        const filterItem = (item) =>
+            (item.title && item.title.toLowerCase().includes(term)) ||
+            (item.description && item.description.toLowerCase().includes(term));
+
+        const searchedQuizzes = quizzes.filter(q => q.is_published && !q.isArchived && filterItem(q));
+        const searchedCourses = courses.filter(c => c.is_published && filterItem(c));
+        const searchedArticles = articles.filter(a => a.is_published && filterItem(a));
+        const searchedPaths = learningPaths.filter(p => p.is_published && filterItem(p));
+
+        return {
+            quizzes: searchedQuizzes, courses: searchedCourses, articles: searchedArticles, paths: searchedPaths,
+        };
+    }, [query, quizzes, courses, articles, learningPaths]);
+
+    return <GlobalSearchPage searchResults={searchResults} onStartQuiz={onStartQuiz} />;
+};
 const QuizPageWrapper = ({
                              pageType,
                              editingQuizDraft,
@@ -522,8 +520,11 @@ export default function App() {
     const [allUsers, setAllUsers] = useState([]); // For admin panel
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [nextCourseRecommendation, setNextCourseRecommendation] = useState(null);
+    const [smartRecommendation, setSmartRecommendation] = useState(null);
     const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
     const [assignmentData, setAssignmentData] = useState({ itemId: null, itemTitle: '', itemType: '' });
+    const [allQuests, setAllQuests] = useState([]);
+    const [userQuests, setUserQuests] = useState([]);
 
     const [lastResult, setLastResult] = useState(null);
     const [toast, setToast] = useState({ message: '', isVisible: false });
@@ -581,6 +582,73 @@ export default function App() {
         setTimeout(() => setToast({ message: '', isVisible: false }), 3000);
     }, []);
 
+    const generateSmartRecommendation = useCallback(async () => {
+        if (!profile || !quizResults.length) return;
+
+        const userResults = quizResults.filter(r => r.user_id === profile.id && r.status === 'completed');
+        if (userResults.length === 0) return;
+
+        const topicMistakes = new Map();
+
+        userResults.forEach(result => {
+            const quiz = quizzes.find(q => q.id === result.quizId);
+            if (!quiz || !quiz.questions) return;
+
+            result.questionOrder.forEach(q_ordered => {
+                const originalQuestion = quiz.questions.find(q => q.id === q_ordered.id);
+                if (originalQuestion && !isAnswerCorrect(originalQuestion, result.userAnswers[originalQuestion.id])) {
+                    if (quiz.category) {
+                        topicMistakes.set(quiz.category, (topicMistakes.get(quiz.category) || 0) + 1);
+                    }
+                    if (originalQuestion.tags) {
+                        originalQuestion.tags.forEach(tag => {
+                            topicMistakes.set(tag, (topicMistakes.get(tag) || 0) + 1);
+                        });
+                    }
+                }
+            });
+        });
+
+        if (topicMistakes.size === 0) {
+            setSmartRecommendation(null); // Clear old recommendations if no new mistakes
+            return;
+        }
+
+        const worstTopic = [...topicMistakes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+
+        const completedArticleIds = new Set((articleProgress || []).map(p => p.article_id));
+        const completedCourseIds = new Set((completedCourses || []).map(c => c.course_id));
+
+        const recommendedArticle = articles.find(article =>
+            !completedArticleIds.has(article.id) &&
+            article.is_published &&
+            (article.category === worstTopic || (article.article_quizzes || []).some(aq => quizzes.find(q => q.id === aq.quiz_id)?.category === worstTopic))
+        );
+
+        if (recommendedArticle) {
+            setSmartRecommendation({ reason: worstTopic, item: recommendedArticle });
+            return;
+        }
+
+        const recommendedCourse = courses.find(course =>
+            !completedCourseIds.has(course.id) &&
+            course.is_published &&
+            (course.course_items || []).some(item => {
+                const quiz = quizzes.find(q => q.id === item.quiz_id);
+                const article = articles.find(a => a.id === item.article_id);
+                return (quiz && quiz.category === worstTopic) || (article && article.category === worstTopic);
+            })
+        );
+
+        if (recommendedCourse) {
+            setSmartRecommendation({ reason: worstTopic, item: recommendedCourse });
+            return;
+        }
+
+        setSmartRecommendation(null);
+
+    }, [profile, quizResults, quizzes, articles, courses, articleProgress, completedCourses]);
+
     const handleAddExperience = useCallback(async (pointsToAdd) => {
         if (!profile || pointsToAdd <= 0) return;
 
@@ -600,6 +668,52 @@ export default function App() {
             showToast(`+${pointsToAdd} təcrübə xalı qazandınız!`);
         }
     }, [profile, showToast]);
+
+    const handleQuestProgress = useCallback(async (goalType) => {
+        if (!session?.user || !userQuests || userQuests.length === 0) return;
+
+        const questToUpdate = userQuests
+            .filter(uq =>
+                uq.quests.goal_type === goalType &&
+                uq.status === 'in_progress'
+            )
+            .sort((a, b) => new Date(b.assigned_at) - new Date(a.assigned_at))[0];
+
+        if (!questToUpdate) return;
+
+        const newProgress = questToUpdate.progress + 1;
+        const questDefinition = questToUpdate.quests;
+
+        if (newProgress >= questDefinition.goal_value) {
+            const { data, error } = await supabase
+                .from('user_quests')
+                .update({ progress: newProgress, status: 'completed', completed_at: new Date().toISOString() })
+                .eq('id', questToUpdate.id)
+                .select('*, quests(*)')
+                .single();
+
+            if (error) {
+                console.error('Error completing quest:', error);
+            } else {
+                showToast(`Tapşırıq tamamlandı: "${questDefinition.title}"!`);
+                await handleAddExperience(questDefinition.reward_xp);
+                setUserQuests(prev => prev.map(uq => uq.id === data.id ? data : uq));
+            }
+        } else {
+            const { data, error } = await supabase
+                .from('user_quests')
+                .update({ progress: newProgress })
+                .eq('id', questToUpdate.id)
+                .select('*, quests(*)')
+                .single();
+
+            if (error) {
+                console.error('Error updating quest progress:', error);
+            } else {
+                setUserQuests(prev => prev.map(uq => uq.id === data.id ? data : uq));
+            }
+        }
+    }, [session, userQuests, handleAddExperience, showToast]);
 
     const handleCourseCompletionCheck = useCallback(async (courseId) => {
         if (!profile || !courseId || completedCourses.some(c => c.course_id === courseId)) {
@@ -631,6 +745,7 @@ export default function App() {
                 setCompletedCourses(prev => [...prev, data]);
                 showToast(`Təbriklər! "${course.title}" kursunu tamamladınız!`);
                 await handleAddExperience(50); // Award 50 XP for course completion
+                await handleQuestProgress('COMPLETE_COURSES');
 
                 // --- NEW RECOMMENDATION LOGIC ---
                 const parentPath = learningPaths.find(p => p.path_items.some(item => item.course_id === courseId));
@@ -652,7 +767,7 @@ export default function App() {
                 }
             }
         }
-    }, [profile, completedCourses, courses, articleProgress, quizResults, handleAddExperience, showToast, learningPaths]);
+    }, [profile, completedCourses, courses, articleProgress, quizResults, handleAddExperience, showToast, learningPaths, handleQuestProgress]);
 
     const fetchNotifications = useCallback(async () => {
         if (session?.user) {
@@ -665,6 +780,79 @@ export default function App() {
             }
         }
     }, [session, showToast]);
+
+    const checkAndAssignQuests = useCallback(async () => {
+        if (!session?.user) return;
+
+        const getStartOfWeek = (date) => {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setHours(0, 0, 0, 0);
+            return new Date(d.setDate(diff)).toISOString().slice(0, 10);
+        };
+
+        const { data: activeQuests, error: questsError } = await supabase
+            .from('quests')
+            .select('*')
+            .eq('is_active', true);
+
+        if (questsError) {
+            console.error('Error fetching quests:', questsError);
+            return;
+        }
+        if (!activeQuests || activeQuests.length === 0) {
+            setUserQuests([]);
+            return;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const startOfWeek = getStartOfWeek(new Date());
+
+        const { data: recentUserQuests, error: userQuestsError } = await supabase
+            .from('user_quests')
+            .select('quest_id, assigned_at')
+            .eq('user_id', session.user.id)
+            .gte('assigned_at', startOfWeek);
+
+        if (userQuestsError) {
+            console.error('Error fetching recent user quests:', userQuestsError);
+            return;
+        }
+
+        const assignedDailyQuestIds = new Set(recentUserQuests.filter(q => q.assigned_at === today).map(q => q.quest_id));
+        const assignedWeeklyQuestIds = new Set(recentUserQuests.filter(q => q.assigned_at === startOfWeek).map(q => q.quest_id));
+
+        const questsToAssign = [];
+
+        for (const quest of activeQuests) {
+            if (quest.type === 'DAILY' && !assignedDailyQuestIds.has(quest.id)) {
+                questsToAssign.push({ user_id: session.user.id, quest_id: quest.id, assigned_at: today });
+            } else if (quest.type === 'WEEKLY' && !assignedWeeklyQuestIds.has(quest.id)) {
+                questsToAssign.push({ user_id: session.user.id, quest_id: quest.id, assigned_at: startOfWeek });
+            }
+        }
+
+        if (questsToAssign.length > 0) {
+            const { error: insertError } = await supabase.from('user_quests').insert(questsToAssign);
+            if (insertError) {
+                console.error('Error assigning new quests:', insertError);
+            }
+        }
+
+        const { data: finalUserQuests, error: finalFetchError } = await supabase
+            .from('user_quests')
+            .select('*, quests(*)')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false });
+
+        if (finalFetchError) {
+            console.error('Error fetching final user quests:', finalFetchError);
+        } else {
+            setUserQuests(finalUserQuests || []);
+        }
+
+    }, [session]);
 
     useEffect(() => {
         const fetchSession = async () => {
@@ -733,12 +921,9 @@ export default function App() {
                     // --- End of Gamification Logic ---
 
                     setProfile(profileData);
-
-                    if (profileData.role === 'admin') {
-                        const { data: usersData } = await supabase.from('profiles').select('*');
-                        setAllUsers(usersData || []);
-                    }
                 }
+                const { data: usersData } = await supabase.from('profiles').select('*');
+                setAllUsers(usersData || []);
 
                 let quizzesQuery = supabase.from('quizzes').select('*');
                 if (profileData?.role !== 'admin') {
@@ -816,12 +1001,16 @@ export default function App() {
                 setCompletedCourses(completionsData || []);
 
                 await fetchNotifications();
+                await checkAndAssignQuests();
 
                 const { data: achievementsData } = await supabase.from('user_achievements').select('*, achievements(*)').eq('user_id', session.user.id);
                 setUserAchievements(achievementsData || []);
 
                 const { data: allAchievementsData } = await supabase.from('achievements').select('*');
                 setAllAchievements(allAchievementsData || []);
+
+                const { data: allQuestsData } = await supabase.from('quests').select('*').order('created_at', { ascending: false });
+                setAllQuests(allQuestsData || []);
 
             } else {
                 setProfile(null);
@@ -841,13 +1030,15 @@ export default function App() {
                 setUserFlashcardReviews([]);
                 setStudentGroups([]);
                 setUserAssignments([]);
+                setUserQuests([]);
+                setAllQuests([]);
             }
         };
 
         if (!isAuthLoading) {
             fetchUserData();
         }
-    }, [session, isAuthLoading, fetchNotifications, showToast]);
+    }, [session, isAuthLoading, fetchNotifications, showToast, checkAndAssignQuests]);
 
     // --- REALTIME NOTIFICATIONS --- //
     useEffect(() => {
@@ -880,6 +1071,48 @@ export default function App() {
         return Array.from(categories).sort();
     }, [articles]);
 
+    const dueFlashcardsCount = useMemo(() => {
+        if (!flashcardDecks || !userFlashcardReviews || !session) return 0;
+
+        const now = new Date().toISOString();
+
+        const allPublishedCards = flashcardDecks
+            .filter(deck => deck.is_published)
+            .flatMap(deck => deck.flashcards || []);
+
+        if (allPublishedCards.length === 0) return 0;
+
+        const reviewsMap = new Map(userFlashcardReviews.map(review => [review.card_id, review]));
+
+        let dueCount = 0;
+        allPublishedCards.forEach(card => {
+            const review = reviewsMap.get(card.id);
+            // Карточка "готова", если по ней нет отзыва (новая) или дата следующего повторения уже наступила
+            if (!review || (review.next_review_at && review.next_review_at <= now)) {
+                dueCount++;
+            }
+        });
+
+        return dueCount;
+    }, [flashcardDecks, userFlashcardReviews, session]);
+
+    const activeAssignmentsCount = useMemo(() => {
+        if (!userAssignments || !quizResults || !completedCourses || !session) return 0;
+
+        const completedQuizIds = new Set((quizResults || []).filter(r => r.user_id === session.user.id).map(r => r.quizId));
+        const completedCourseIds = new Set((completedCourses || []).map(c => c.course_id));
+
+        return userAssignments.filter(assignment => {
+            let isCompleted = false;
+            if (assignment.item_type === 'quiz') {
+                isCompleted = completedQuizIds.has(assignment.item_id);
+            } else if (assignment.item_type === 'course') {
+                isCompleted = completedCourseIds.has(assignment.item_id);
+            }
+            return !isCompleted;
+        }).length;
+    }, [userAssignments, quizResults, completedCourses, session]);
+
     const checkAdmin = () => {
         if (profile?.role !== 'admin') {
             showToast('Bu əməliyyat üçün admin hüququ tələb olunur.');
@@ -893,37 +1126,38 @@ export default function App() {
         setIsAssignmentModalOpen(true);
     };
 
-    const handleCreateAssignment = async ({ assignToType, assignToId, dueDate }) => {
+    const handleCreateAssignment = async ({ assignToType, assignToIds, dueDate }) => {
         if (!checkAdmin()) return;
-    
-        const newAssignment = {
+
+        const assignmentsToCreate = assignToIds.map(id => ({
             assigned_by: session.user.id,
             item_id: assignmentData.itemId,
             item_type: assignmentData.itemType,
             due_date: dueDate,
-            [assignToType === 'user' ? 'assigned_to_user_id' : 'assigned_to_group_id']: assignToId,
-        };
-    
-        const { data, error } = await supabase.from('assignments').insert(newAssignment).select().single();
-    
+            [assignToType === 'user' ? 'assigned_to_user_id' : 'assigned_to_group_id']: id,
+        }));
+
+        const { data, error } = await supabase.from('assignments').insert(assignmentsToCreate).select();
+
         if (error) {
             showToast(`Tapşırıq təyin edilərkən xəta: ${error.message}`);
         } else {
-            showToast(`"${assignmentData.itemTitle}" uğurla təyin edildi.`);
+            showToast(`"${assignmentData.itemTitle}" ${assignToIds.length} nəfərə/qrupa uğurla təyin edildi.`);
             setIsAssignmentModalOpen(false);
 
-            // Send notifications
-            const { error: rpcError } = await supabase.rpc('create_assignment_notification', {
-                assignment_id_in: data.id,
-                assigned_by_user_id_in: session.user.id,
-                target_user_id_in: assignToType === 'user' ? assignToId : null,
-            target_group_id_in: assignToType === 'group' ? Number(assignToId) : null,
-                item_title_in: assignmentData.itemTitle
-            });
+            // Send notifications in a loop
+            for (const assignment of data) {
+                const { error: rpcError } = await supabase.rpc('create_assignment_notification', {
+                    assignment_id_in: assignment.id,
+                    assigned_by_user_id_in: session.user.id,
+                    target_user_id_in: assignToType === 'user' ? assignment.assigned_to_user_id : null,
+                    target_group_id_in: assignToType === 'group' ? Number(assignment.assigned_to_group_id) : null,
+                    item_title_in: assignmentData.itemTitle
+                });
 
-            if (rpcError) {
-                console.error('Error sending notification:', rpcError);
-                showToast('Tapşırıq təyin edildi, lakin bildiriş göndərilə bilmədi.');
+                if (rpcError) {
+                    console.error('Error sending notification for assignment:', assignment.id, rpcError);
+                }
             }
         }
     };
@@ -1045,6 +1279,10 @@ export default function App() {
             const { error: groupError } = await supabase.from('student_groups').delete().eq('id', idToDelete);
             error = groupError;
             if (!error) setStudentGroups(prev => prev.filter(g => g.id !== idToDelete));
+        } else if (type === 'quest') {
+            const { error: questError } = await supabase.from('quests').delete().eq('id', idToDelete);
+            error = questError;
+            if (!error) setAllQuests(prev => prev.filter(q => q.id !== idToDelete));
         }
 
         if (error) {
@@ -1053,6 +1291,32 @@ export default function App() {
             showToast(`${type} uğurla silindi!`);
         }
         setDeleteModal({ isOpen: false, idToDelete: null, type: null });
+    };
+
+    const handleSaveQuest = async (questData) => {
+        if (!checkAdmin()) return;
+
+        const { id, ...questToSave } = questData;
+
+        if (id) {
+            // Update existing quest
+            const { data, error } = await supabase.from('quests').update(questToSave).eq('id', id).select().single();
+            if (error) {
+                showToast(`Tapşırıq yenilənərkən xəta: ${error.message}`);
+            } else {
+                setAllQuests(prev => prev.map(q => q.id === id ? data : q));
+                showToast('Tapşırıq uğurla yeniləndi!');
+            }
+        } else {
+            // Create new quest
+            const { data, error } = await supabase.from('quests').insert(questToSave).select().single();
+            if (error) {
+                showToast(`Tapşırıq yaradılarkən xəta: ${error.message}`);
+            } else {
+                setAllQuests(prev => [data, ...prev]);
+                showToast('Yeni tapşırıq yaradıldı!');
+            }
+        }
     };
 
     const handleSaveQuestionToBank = async (question) => {
@@ -1314,6 +1578,8 @@ export default function App() {
             setQuizResults(prev => [newResult, ...prev]);
             setLastResult(newResult);
             navigate(`/quiz/${quiz.id}/result`);
+            await handleQuestProgress('COMPLETE_QUIZZES');
+            await generateSmartRecommendation();
 
             // Check for course completion
             courses.forEach(course => {
@@ -1817,7 +2083,7 @@ export default function App() {
             .upsert({ ...reviewData, user_id: session.user.id }, { onConflict: 'user_id, card_id' })
             .select()
             .single();
-    
+
         if (error) {
             showToast(`Təkrar məlumatı yenilənərkən xəta: ${error.message}`);
         } else if (data) {
@@ -1831,6 +2097,7 @@ export default function App() {
                     return [...prev, data];
                 }
             });
+            await handleQuestProgress('STUDY_FLASHCARDS');
         }
     };
 
@@ -2042,142 +2309,167 @@ export default function App() {
         }
     };
 
+    const activeUserQuests = useMemo(() => {
+        if (!userQuests) return [];
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const todayStr = today.toISOString().slice(0, 10);
+        const startOfWeekStr = startOfWeek.toISOString().slice(0, 10);
+
+        return userQuests.filter(uq => {
+            if (!uq.quests) return false; // Guard against missing quest data
+            if (uq.quests.type === 'DAILY') {
+                return uq.assigned_at === todayStr;
+            }
+            if (uq.quests.type === 'WEEKLY') {
+                return uq.assigned_at === startOfWeekStr;
+            }
+            return false;
+        });
+    }, [userQuests]);
+
     if (isAuthLoading) {
         return <div className="min-h-screen flex items-center justify-center bg-orange-50">Sessiya yoxlanılır...</div>;
     }
 
     return (
         <>
-            <Routes>
-                <Route path="/auth" element={<AuthPage showToast={showToast} />} />
-                <Route path="/*" element={
-                    session ? (
-                        <div className="bg-orange-50 min-h-screen font-sans text-gray-900">
-                            <header className="bg-white shadow-md sticky top-0 z-40">
-                                <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
-                                    <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
+            <Suspense fallback={<SuspenseFallback />}>
+                <Routes>
+                    <Route path="/auth" element={<AuthPage showToast={showToast} />} />
+                    <Route path="/*" element={
+                        session ? (
+                            <div className="bg-orange-50 min-h-screen font-sans text-gray-900">
+                                <header className="bg-white shadow-md sticky top-0 z-40">
+                                    <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
+                                        <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
 
-                                    {/* Desktop Navigation */}
-                                    <nav className="hidden lg:flex items-center gap-2">
-                                        <Link to="/my-assignments"><Button as="span" variant="secondary"><ClipboardCheckIcon /><span className="ml-2">Tapşırıqlarım</span></Button></Link>
-                                        <Link to="/decks"><Button as="span" variant="secondary"><DuplicateIcon /><span className="ml-2">Kartlar</span></Button></Link>
-                                        <Link to="/paths"><Button as="span" variant="secondary"><PaperAirplaneIcon /><span className="ml-2">Tədris Yolları</span></Button></Link>
-                                        <Link to="/courses"><Button as="span" variant="secondary"><CollectionIcon /><span className="ml-2">Kurslar</span></Button></Link>
-                                        <Link to="/articles"><Button as="span" variant="secondary"><DocumentTextIcon /><span className="ml-2">Məqalələr</span></Button></Link>
-                                        <Link to="/leaderboard"><Button as="span" variant="secondary"><LeaderboardIcon /><span className="ml-2">Reytinqlər</span></Button></Link>
-                                        {profile?.role === 'admin' && (
-                                            <Link to="/admin"><Button as="span" variant="secondary"><ShieldCheckIcon /><span className="ml-2">Admin Panel</span></Button></Link>
-                                        )}
-                                    </nav>
-
-                                    <div className="flex items-center gap-2">
-                                        {profile?.role === 'admin' && (
-                                            <div className="hidden lg:flex">
-                                                <AdminDropdown onQuestionBankRequest={handleQuestionBankRequest} />
+                                        <div className="flex-grow flex justify-center px-4">
+                                            <div className="w-full max-w-md">
+                                                <GlobalSearch />
                                             </div>
-                                        )}
-                                        <NotificationBell notifications={notifications} onMarkAsRead={handleMarkNotificationAsRead} onMarkAllAsRead={handleMarkAllNotificationsAsRead} onClearAllNotifications={handleClearAllNotifications} />
-                                        <Link to="/profile" className="hidden sm:flex">
-                                            <Button variant="secondary"><UserCircleIcon /><span className="hidden sm:inline ml-2">Profil</span></Button>
-                                        </Link>
-                                        <Button onClick={handleSignOut} variant="danger" className="hidden sm:flex"><LogoutIcon /></Button>
+                                        </div>
 
-                                        {/* Mobile Menu Button */}
-                                        <div className="lg:hidden">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <NotificationBell notifications={notifications} onMarkAsRead={handleMarkNotificationAsRead} onMarkAllAsRead={handleMarkAllNotificationsAsRead} onClearAllNotifications={handleClearAllNotifications} />
+                                            <Link to="/leaderboard">
+                                                <Button as="span" variant="secondary"><LeaderboardIcon /></Button>
+                                            </Link>
+                                            <Link to="/profile">
+                                                <Button as="span" variant="secondary"><UserCircleIcon /></Button>
+                                            </Link>
                                             <Button variant="secondary" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                                                 {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
                                             </Button>
                                         </div>
                                     </div>
-                                </div>
-                                {/* Mobile Menu */}
-                                {isMobileMenuOpen && (
-                                    <div className="lg:hidden bg-white border-t">
-                                        <nav className="flex flex-col p-4 space-y-2">
-                                            <Link to="/my-assignments" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ClipboardCheckIcon /><span className="ml-3">Tapşırıqlarım</span></Link>
-                                            <Link to="/decks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DuplicateIcon /><span className="ml-3">Kartlar</span></Link>
-                                            <Link to="/paths" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><PaperAirplaneIcon /><span className="ml-3">Tədris Yolları</span></Link>
-                                            <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
-                                            <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
-                                            <Link to="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><LeaderboardIcon /><span className="ml-3">Reytinqlər</span></Link>
-                                            <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100 sm:hidden"><UserCircleIcon /><span className="ml-3">Profil</span></Link>
-                                            <div className="border-t my-2"></div>
-                                            {profile?.role === 'admin' && (
-                                                <>
-                                                    <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ShieldCheckIcon /><span className="ml-3">Admin Panel</span></Link>
-                                                    <Link to="/stats" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ChartBarIcon /> <span className="ml-3">Statistika</span></Link>
-                                                    <button onClick={() => { handleQuestionBankRequest(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-gray-700 rounded-md hover:bg-gray-100"><LibraryIcon /> <span className="ml-3">Suallar Bankı</span></button>
-                                                    <div className="border-t my-2"></div>
-                                                </>
-                                            )}
-                                            <button onClick={() => { handleSignOut(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-red-600 rounded-md hover:bg-red-50 sm:hidden"><LogoutIcon /><span className="ml-3">Çıxış</span></button>
-                                        </nav>
-                                    </div>
-                                )}
-                            </header>
-                            <main className="container mx-auto px-4 py-6 md:py-8">
-                                <RecommendationCard
-                                    recommendation={nextCourseRecommendation}
-                                    onStart={(courseId) => {
-                                        navigate(`/courses/${courseId}`);
-                                        setNextCourseRecommendation(null);
-                                    }}
-                                    onClose={() => setNextCourseRecommendation(null)}
-                                />
-                                <Routes>
-                                    <Route path="/" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} />} />
-                                    <Route path="/my-assignments" element={<MyAssignmentsPage assignments={userAssignments} quizzes={quizzes} courses={courses} onStartQuiz={handleStartQuizRequest} quizResults={quizResults} completedCourses={completedCourses} />} />
-                                    <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} profile={profile} showToast={showToast} />} />
-                                    <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
-                                    <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
-                                    <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} />} />
-                                    <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} />} />
-                                    <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
-                                    <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
-                                    <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />} />
-                                    <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} />} />
-                                    <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
-                                    <Route path="/decks" element={<PublicFlashcardDeckListPage decks={flashcardDecks} userReviews={userFlashcardReviews} />} />
-                                    <Route path="/decks/:deckId/study" element={<FlashcardStudyPage decks={flashcardDecks} userReviews={userFlashcardReviews} onUpdateReview={handleUpdateFlashcardReview} />} />
 
-                                    {/* === ADMIN ROUTES === */}
-                                    <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} studentGroups={studentGroups} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} />} /></Routes></AdminRoute>} />
-                                    <Route path="/question-bank" element={<AdminRoute profile={profile} showToast={showToast}><QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} /></AdminRoute>} />
-                                    <Route path="/manual-review/:resultId" element={<AdminRoute profile={profile} showToast={showToast}><ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} /></AdminRoute>} />
-                                    <Route path="/quiz/:id/edit" element={<AdminRoute profile={profile} showToast={showToast}><QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft, onSaveQuestionToBank: handleSaveQuestionFromEditorToBank }} /></AdminRoute>} />
-                                    <Route path="/admin" element={<AdminRoute profile={profile} showToast={showToast}><AdminPage /></AdminRoute>}>
-                                        <Route index element={<AdminDashboardPage stats={adminDashboardStats} />} />
-                                        <Route path="users" element={<UserManagementPage users={allUsers} onRoleChange={handleRoleChange} currentUserId={profile?.id} />} />
-                                        <Route path="groups" element={<StudentGroupListPage groups={studentGroups} onAddNew={handleNewStudentGroup} onEdit={handleEditStudentGroup} onDelete={(id) => handleDeleteRequest(id, 'group')} />} />
-                                        <Route path="groups/new" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
-                                        <Route path="groups/edit/:groupId" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
-                                        <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} />} />
-                                        <Route path="articles/new" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
-                                        <Route path="articles/edit/:articleId" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
-                                        <Route path="courses" element={<CourseListPage courses={courses} onEdit={handleEditCourse} onDelete={(id) => handleDeleteRequest(id, 'course')} onAddNew={handleNewCourse} onToggleStatus={handleToggleCourseStatus} onAssignRequest={handleAssignRequest} />} />
-                                        <Route path="courses/new" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
-                                        <Route path="courses/edit/:courseId" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
-                                        <Route path="paths" element={<LearningPathListPage paths={learningPaths} onEdit={handleEditLearningPath} onDelete={(id) => handleDeleteRequest(id, 'path')} onAddNew={handleNewLearningPath} onToggleStatus={handleToggleLearningPathStatus} />} />
-                                        <Route path="paths/new" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
-                                        <Route path="paths/edit/:pathId" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
-                                        <Route path="decks" element={<FlashcardDeckListPage decks={flashcardDecks} onEdit={handleEditFlashcardDeck} onDelete={(id) => handleDeleteRequest(id, 'deck')} onAddNew={handleNewFlashcardDeck} onToggleStatus={handleToggleFlashcardDeckStatus} />} />
-                                        <Route path="decks/new" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
-                                        <Route path="decks/edit/:deckId" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
-                                    </Route>
+                                    {isMobileMenuOpen && (
+                                        <div className="bg-white border-t">
+                                            <nav className="flex flex-col p-4 space-y-2">
+                                                <Link to="/my-assignments" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ClipboardCheckIcon /><span className="ml-3">Tapşırıqlarım</span></Link>
+                                                <Link to="/quizzes" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><BookOpenIcon /><span className="ml-3">Testlər</span></Link>
+                                                <Link to="/decks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DuplicateIcon /><span className="ml-3">Kartlar</span></Link>
+                                                <Link to="/paths" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><PaperAirplaneIcon /><span className="ml-3">Tədris Yolları</span></Link>
+                                                <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
+                                                <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
+                                                <div className="border-t my-2"></div>
+                                                {profile?.role === 'admin' && (
+                                                    <>
+                                                        <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ShieldCheckIcon /><span className="ml-3">Admin Panel</span></Link>
+                                                        <Link to="/stats" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ChartBarIcon /> <span className="ml-3">Statistika</span></Link>
+                                                        <button onClick={() => { handleQuestionBankRequest(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-gray-700 rounded-md hover:bg-gray-100"><LibraryIcon /> <span className="ml-3">Suallar Bankı</span></button>
+                                                        <div className="border-t my-2"></div>
+                                                    </>
+                                                )}
+                                                <button onClick={() => { handleSignOut(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-red-600 rounded-md hover:bg-red-50"><LogoutIcon /><span className="ml-3">Çıxış</span></button>
+                                            </nav>
+                                        </div>
+                                    )}
+                                </header>
+                                <main className="container mx-auto px-4 py-6 md:py-8">
+                                    <RecommendationCard
+                                        recommendation={nextCourseRecommendation}
+                                        onStart={(courseId) => {
+                                            navigate(`/courses/${courseId}`);
+                                            setNextCourseRecommendation(null);
+                                        }}
+                                        onClose={() => setNextCourseRecommendation(null)}
+                                    />
+                                    <SmartRecommendationCard
+                                        recommendation={smartRecommendation}
+                                        onStart={(itemId, itemType) => {
+                                            navigate(`/${itemType}s/${itemId}`);
+                                            setSmartRecommendation(null);
+                                        }}
+                                        onClose={() => setSmartRecommendation(null)}
+                                    />
+                                    <Routes>
+                                        <Route path="/" element={<DashboardPage
+                                            profile={profile}
+                                            activeAssignmentsCount={activeAssignmentsCount}
+                                            dueFlashcardsCount={dueFlashcardsCount}
+                                        />} />
+                                        <Route path="/search" element={<GlobalSearchPageWrapper {...{ quizzes, courses, articles, learningPaths, onStartQuiz: handleStartQuizRequest }} />} />
+                                        <Route path="/quizzes" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} />} />
+                                        <Route path="/my-assignments" element={<MyAssignmentsPage assignments={userAssignments} quizzes={quizzes} courses={courses} onStartQuiz={handleStartQuizRequest} quizResults={quizResults} completedCourses={completedCourses} userQuests={activeUserQuests} />} />
+                                        <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} profile={profile} showToast={showToast} />} />
+                                        <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
+                                        <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
+                                        <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} allUsers={allUsers} />} />
+                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} />} />
+                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
+                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
+                                        <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />} />
+                                        <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} />} />
+                                        <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
+                                        <Route path="/decks" element={<PublicFlashcardDeckListPage decks={flashcardDecks} userReviews={userFlashcardReviews} />} />
+                                        <Route path="/decks/:deckId/study" element={<FlashcardStudyPage decks={flashcardDecks} userReviews={userFlashcardReviews} onUpdateReview={handleUpdateFlashcardReview} />} />
 
-                                    {/* === PUBLIC & USER ROUTES === */}
-                                    <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz }} />} />
-                                    <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes }} />} />
-                                    <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} />
-                                    <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults }} />} />
-                                    <Route path="/quiz/:id/review" element={<QuizPageWrapper pageType="review" {...{ quizzes, lastResult, quizResults, session, profile, fetchComments, postComment, deleteComment }} />} />
-                                </Routes>
-                            </main>
-                            <footer className="text-center py-4 text-gray-500 text-sm"><p>&copy; {new Date().getFullYear()} EduventureWithSeda. Bütün hüquqlar qorunur.</p></footer>
-                        </div>
-                    ) : <AuthPage showToast={showToast} />
-                } />
-            </Routes>
+                                        {/* === ADMIN ROUTES === */}
+                                        <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} studentGroups={studentGroups} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} allUsers={allUsers} />} /></Routes></AdminRoute>} />
+                                        <Route path="/question-bank" element={<AdminRoute profile={profile} showToast={showToast}><QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} /></AdminRoute>} />
+                                        <Route path="/manual-review/:resultId" element={<AdminRoute profile={profile} showToast={showToast}><ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} /></AdminRoute>} />
+                                        <Route path="/quiz/:id/edit" element={<AdminRoute profile={profile} showToast={showToast}><QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft, onSaveQuestionToBank: handleSaveQuestionFromEditorToBank }} /></AdminRoute>} />
+                                        <Route path="/admin" element={<AdminRoute profile={profile} showToast={showToast}><AdminPage /></AdminRoute>}>
+                                            <Route index element={<AdminDashboardPage stats={adminDashboardStats} />} />
+                                            <Route path="users" element={<UserManagementPage users={allUsers} onRoleChange={handleRoleChange} currentUserId={profile?.id} />} />
+                                            <Route path="quests" element={<QuestManagementPage quests={allQuests} onSave={handleSaveQuest} onDelete={(id) => handleDeleteRequest(id, 'quest')} showToast={showToast} />} />
+                                            <Route path="groups" element={<StudentGroupListPage groups={studentGroups} onAddNew={handleNewStudentGroup} onEdit={handleEditStudentGroup} onDelete={(id) => handleDeleteRequest(id, 'group')} />} />
+                                            <Route path="group-analysis" element={<GroupAnalysisPage studentGroups={studentGroups} allUsers={allUsers} results={quizResults} courses={courses} quizzes={quizzes} userCourseCompletions={completedCourses} />} />
+                                            <Route path="groups/new" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
+                                            <Route path="groups/edit/:groupId" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
+                                            <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} />} />
+                                            <Route path="articles/new" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
+                                            <Route path="articles/edit/:articleId" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
+                                            <Route path="courses" element={<CourseListPage courses={courses} onEdit={handleEditCourse} onDelete={(id) => handleDeleteRequest(id, 'course')} onAddNew={handleNewCourse} onToggleStatus={handleToggleCourseStatus} onAssignRequest={handleAssignRequest} />} />
+                                            <Route path="courses/new" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
+                                            <Route path="courses/edit/:courseId" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
+                                            <Route path="paths" element={<LearningPathListPage paths={learningPaths} onEdit={handleEditLearningPath} onDelete={(id) => handleDeleteRequest(id, 'path')} onAddNew={handleNewLearningPath} onToggleStatus={handleToggleLearningPathStatus} />} />
+                                            <Route path="paths/new" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
+                                            <Route path="paths/edit/:pathId" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
+                                            <Route path="decks" element={<FlashcardDeckListPage decks={flashcardDecks} onEdit={handleEditFlashcardDeck} onDelete={(id) => handleDeleteRequest(id, 'deck')} onAddNew={handleNewFlashcardDeck} onToggleStatus={handleToggleFlashcardDeckStatus} />} />
+                                            <Route path="decks/new" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
+                                            <Route path="decks/edit/:deckId" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
+                                        </Route>
+
+                                        {/* === PUBLIC & USER ROUTES === */}
+                                        <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz }} />} />
+                                        <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes }} />} />
+                                        <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} />
+                                        <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults }} />} />
+                                        <Route path="/quiz/:id/review" element={<QuizPageWrapper pageType="review" {...{ quizzes, lastResult, quizResults, session, profile, fetchComments, postComment, deleteComment }} />} />
+                                    </Routes>
+                                </main>
+                                <footer className="text-center py-4 text-gray-500 text-sm"><p>&copy; {new Date().getFullYear()} EduventureWithSeda. Bütün hüquqlar qorunur.</p></footer>
+                            </div>
+                        ) : <AuthPage showToast={showToast} />
+                    } />
+                </Routes>
+            </Suspense>
             <Toast message={toast.message} isVisible={toast.isVisible} />
             <Modal isOpen={deleteModal.isOpen} onClose={() => setDeleteModal({ isOpen: false, idToDelete: null, type: null })} onConfirm={confirmDelete} title={`${deleteModal.type} silməni təsdiqləyin`}><p>Bu {deleteModal.type} silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarılmazdır.</p></Modal>
             <PasscodeModal isOpen={isPasscodeModalOpen} onClose={() => setIsPasscodeModalOpen(false)} onConfirm={handlePasscodeConfirm} showToast={showToast} />
