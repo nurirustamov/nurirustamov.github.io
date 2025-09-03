@@ -336,10 +336,10 @@ const StatisticsPage = ({ results, onBack, quizzes, onReviewResult, studentGroup
     const sortedCompletedResults = useMemo(() => {
         return [...completedResults].sort((a, b) => {
             let compareValue = 0;
-            if (sortBy === 'date') compareValue = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            if (sortBy === 'date') compareValue = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
             else if (sortBy === 'name') compareValue = `${a.userName} ${a.userSurname}`.localeCompare(`${b.userName} ${b.userSurname}`);
             else if (sortBy === 'quizTitle') compareValue = a.quizTitle.localeCompare(b.quizTitle);
-            else if (sortBy === 'score') compareValue = b.score - a.score;
+            else if (sortBy === 'score') compareValue = a.score - b.score;
             return sortDirection === 'asc' ? compareValue : -compareValue;
         });
     }, [completedResults, sortBy, sortDirection]);

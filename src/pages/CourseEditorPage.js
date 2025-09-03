@@ -191,6 +191,10 @@ const CourseEditorPage = ({ course, onDraftChange, articles, quizzes, onSave, sh
                                 <textarea name="description" value={course.description} onChange={handleDraftChange} rows="4" className="w-full p-2 border border-gray-300 rounded-md"></textarea>
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Giriş Kodu (Könüllü)</label>
+                                <input type="text" name="passcode" value={course.passcode || ''} onChange={handleDraftChange} className="w-full p-2 border border-gray-300 rounded-md" placeholder="Kurs üçün parol təyin et" />
+                            </div>
+                            <div>
                                 <label className="flex items-center cursor-pointer">
                                     <input type="checkbox" name="is_published" checked={!!course.is_published} onChange={handleDraftChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" />
                                     <span className="ml-2 text-sm text-gray-700">Dərc edilsin</span>

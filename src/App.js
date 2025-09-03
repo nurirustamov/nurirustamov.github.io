@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { Routes, Route, useNavigate, useParams, Link, useLocation, createSearchParams, useSearchParams } from 'react-router-dom';
 import Papa from 'papaparse';
+import { useOnClickOutside } from 'usehooks-ts';
 import { supabase } from './supabaseClient';
 
 // --- UI Компоненты ---
@@ -84,7 +85,10 @@ const AdminRoute = ({ profile, showToast, children }) => {
 // --- Новый компонент уведомлений ---
 const NotificationBell = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClearAllNotifications }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const ref = useRef(null);
     const unreadCount = notifications.filter(n => !n.is_read).length;
+
+    useOnClickOutside(ref, () => setIsOpen(false));
 
     const handleNotificationClick = (notification) => {
         onMarkAsRead(notification.id);
@@ -92,7 +96,7 @@ const NotificationBell = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClea
     };
 
     return (
-        <div className="relative">
+        <div className="relative" ref={ref}>
             <Button variant="secondary" onClick={() => setIsOpen(!isOpen)}>
                 <BellIcon />
                 {unreadCount > 0 && (
@@ -153,6 +157,11 @@ const isAnswerCorrect = (question, userAnswer) => {
 // --- Модальные окна ---
 const PasscodeModal = ({ isOpen, onClose, onConfirm, showToast }) => {
     const [passcode, setPasscode] = useState('');
+    useEffect(() => {
+        if (!isOpen) {
+            setPasscode('');
+        }
+    }, [isOpen]);
     const handleConfirm = () => {
         onConfirm(passcode);
     };
@@ -162,7 +171,7 @@ const PasscodeModal = ({ isOpen, onClose, onConfirm, showToast }) => {
             <div className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Giriş Kodu</label>
-                    <input type="text" value={passcode} onChange={(e) => setPasscode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Kodu daxil edin" />
+                    <input type="text" value={passcode} onChange={(e) => setPasscode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Kodu daxil edin" autoFocus />
                 </div>
             </div>
             <div className="mt-6 flex justify-end">
@@ -374,9 +383,43 @@ const ArticleEditorPageWrapper = ({ onSave, showToast, ...props }) => {
     return <ArticleEditorPage {...props} article={article} onSave={onSave} showToast={showToast} />;
 };
 
-const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment }) => (
-    <ArticleViewPage articles={articles} quizzes={quizzes} onStartQuiz={onStartQuiz} onMarkAsRead={onMarkAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />
-);
+const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment, setPasscodeContent, setIsContentPasscodeModalOpen }) => {
+    const { articleId } = useParams();
+    const navigate = useNavigate();
+    const [isAccessGranted, setIsAccessGranted] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const article = useMemo(() => articles.find(a => a.id === Number(articleId)), [articles, articleId]);
+
+    useEffect(() => {
+        if (article) {
+            if (article.passcode) {
+                const unlockedItems = JSON.parse(sessionStorage.getItem('unlockedContent') || '{}');
+                if (unlockedItems[`article-${article.id}`] === article.passcode) {
+                    setIsAccessGranted(true);
+                } else {
+                    setPasscodeContent({ item: article, type: 'article' });
+                    setIsContentPasscodeModalOpen(true);
+                    navigate('/articles');
+                }
+            } else {
+                setIsAccessGranted(true);
+            }
+        }
+        setIsLoading(false);
+    }, [article, navigate, setPasscodeContent, setIsContentPasscodeModalOpen]);
+
+    if (isLoading) {
+        return <div className="text-center py-12">Yüklənir...</div>;
+    }
+    if (!article) {
+        return <div className="text-center py-12">Məqalə tapılmadı.</div>;
+    }
+    if (!isAccessGranted) {
+        return <div className="text-center py-12">Giriş yoxlanılır...</div>;
+    }
+    return <ArticleViewPage articles={articles} quizzes={quizzes} onStartQuiz={onStartQuiz} onMarkAsRead={onMarkAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
+};
 
 const CourseEditorPageWrapper = ({ editingCourseDraft, setEditingCourseDraft, articles, quizzes, onSave, showToast, onAssignRequest }) => {
     if (!editingCourseDraft) return <div className="text-center py-12">Yüklənir...</div>;
@@ -402,7 +445,47 @@ const LearningPathEditorPageWrapper = ({ editingLearningPathDraft, setEditingLea
     />;
 };
 
-const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResults, session, profile }) => {
+const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResults, session, profile, setPasscodeContent, setIsContentPasscodeModalOpen }) => {
+    const { courseId } = useParams();
+    const navigate = useNavigate();
+    const [isAccessGranted, setIsAccessGranted] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const course = useMemo(() => courses.find(c => c.id === Number(courseId)), [courses, courseId]);
+
+    useEffect(() => {
+        if (course) {
+            // --- NEW: Check if the course is published ---
+            if (!course.is_published && profile?.role !== 'admin') {
+                navigate('/courses');
+                return;
+            }
+
+            if (course.passcode) {
+                const unlockedItems = JSON.parse(sessionStorage.getItem('unlockedContent') || '{}');
+                if (unlockedItems[`course-${course.id}`] === course.passcode) {
+                    setIsAccessGranted(true);
+                } else {
+                    setPasscodeContent({ item: course, type: 'course' });
+                    setIsContentPasscodeModalOpen(true);
+                    navigate('/courses');
+                }
+            } else {
+                setIsAccessGranted(true);
+            }
+        }
+        setIsLoading(false);
+    }, [course, navigate, setPasscodeContent, setIsContentPasscodeModalOpen, profile]);
+
+    if (isLoading) {
+        return <div className="text-center py-12">Yüklənir...</div>;
+    }
+    if (!course) {
+        return <div className="text-center py-12">Kurs tapılmadı.</div>;
+    }
+    if (!isAccessGranted) {
+        return <div className="text-center py-12">Giriş yoxlanılır...</div>;
+    }
     return <CourseViewPage courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />;
 };
 
@@ -455,39 +538,85 @@ const QuizPageWrapper = ({
                              fetchComments,
                              postComment,
                              deleteComment,
-                             onSaveQuestionToBank
+                             onSaveQuestionToBank,
+                             setPasscodeQuiz,
+                             setIsPasscodeModalOpen
                          }) => {
     const { id } = useParams();
     const navigate = useNavigate();
-    let quiz;
+    const [isAccessGranted, setIsAccessGranted] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    if (pageType === 'edit') {
-        quiz = editingQuizDraft;
-    } else if (pageType === 'custom_practice') {
-        quiz = customPracticeQuiz;
-    } else {
-        quiz = quizzes.find(q => q.id === Number(id));
+    const quiz = useMemo(() => {
+        if (pageType === 'edit') return editingQuizDraft;
+        if (pageType === 'custom_practice') return customPracticeQuiz;
+        return quizzes.find(q => q.id === Number(id));
+    }, [id, pageType, quizzes, editingQuizDraft, customPracticeQuiz]);
+
+    useEffect(() => {
+        if (pageType !== 'take' && pageType !== 'practice') {
+            setIsAccessGranted(true);
+            setIsLoading(false);
+            return;
+        }
+
+        if (quiz) {
+            const now = new Date();
+
+            // --- Time checks for non-admins ---
+            if (profile?.role !== 'admin') {
+                if (quiz.start_time && now < new Date(quiz.start_time)) {
+                    showToast(`Bu test ${new Date(quiz.start_time).toLocaleString()} tarixində başlayacaq.`);
+                    navigate('/quizzes');
+                    return;
+                }
+                const deadline = quiz.end_time || quiz.due_date;
+                if (deadline && now > new Date(deadline)) {
+                    showToast('Bu testin vaxtı bitib.');
+                    navigate('/quizzes');
+                    return;
+                }
+            }
+
+            // --- Passcode check ---
+            if (quiz.passcode) {
+                const unlockedItems = JSON.parse(sessionStorage.getItem('unlockedContent') || '{}');
+                if (unlockedItems[`quiz-${quiz.id}`] === quiz.passcode) {
+                    setIsAccessGranted(true);
+                } else {
+                    setPasscodeQuiz(quiz);
+                    setIsPasscodeModalOpen(true);
+                    navigate('/quizzes');
+                }
+            } else {
+                setIsAccessGranted(true);
+            }
+        }
+        setIsLoading(false);
+    }, [quiz, pageType, navigate, setPasscodeQuiz, setIsPasscodeModalOpen, showToast, profile]);
+
+    if (isLoading) {
+        return <div className="text-center py-12">Yüklənir...</div>;
+    }
+    if (!quiz) {
+        return <div className="text-center text-red-500">Test tapılmadı.</div>;
+    }
+    if (!isAccessGranted) {
+        return <div className="text-center py-12">Giriş yoxlanılır...</div>;
     }
 
-    if (!quiz) return <div className="text-center text-red-500">Yüklənir...</div>;
-
+    // If access is granted, render the correct page
     switch (pageType) {
-        case 'edit':
-            return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={handleImportRequest} onAddFromBankRequest={handleAddFromBankRequest} onDraftChange={setEditingQuizDraft} onSaveQuestionToBank={onSaveQuestionToBank} />;
-        case 'take':
-            return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
-        case 'practice':
-            return <TakeQuizPage quiz={quiz} user={{ username: 'Tələbə' }} mode="practice" />;
-        case 'custom_practice':
-            return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
-        case 'result':
-            return <QuizResultPage lastResult={lastResult} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
+        case 'edit': return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={handleImportRequest} onAddFromBankRequest={handleAddFromBankRequest} onDraftChange={setEditingQuizDraft} onSaveQuestionToBank={onSaveQuestionToBank} />;
+        case 'take': return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
+        case 'practice': return <TakeQuizPage quiz={quiz} user={{ username: 'Tələbə' }} mode="practice" />;
+        case 'custom_practice': return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
+        case 'result': return <QuizResultPage lastResult={lastResult} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
         case 'review':
             const resultForReview = lastResult || quizResults.find(r => r.quizId === quiz.id && r.user_id === session.user.id);
             if (!resultForReview) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
             return <QuizReviewPage quiz={quiz} userAnswers={resultForReview.userAnswers} questionOrder={resultForReview.questionOrder} onBack={() => navigate(-1)} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
-        default:
-            return navigate('/');
+        default: return navigate('/');
     }
 };
 
@@ -536,8 +665,13 @@ export default function App() {
     const [isAddFromBankModalOpen, setIsAddFromBankModalOpen] = useState(false);
     const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
     const [passcodeQuiz, setPasscodeQuiz] = useState(null);
+    const [isContentPasscodeModalOpen, setIsContentPasscodeModalOpen] = useState(false);
+    const [passcodeContent, setPasscodeContent] = useState(null);
 
     const navigate = useNavigate();
+
+    const mobileMenuRef = useRef(null);
+    useOnClickOutside(mobileMenuRef, () => setIsMobileMenuOpen(false));
 
     const adminDashboardStats = useMemo(() => {
         if (profile?.role !== 'admin') {
@@ -1421,13 +1555,49 @@ export default function App() {
 
     const handlePasscodeConfirm = (enteredPasscode) => {
         if (passcodeQuiz && enteredPasscode === passcodeQuiz.passcode) {
+            // Add to sessionStorage to remember the unlock
+            const unlockedItems = JSON.parse(sessionStorage.getItem('unlockedContent') || '{}');
+            unlockedItems[`quiz-${passcodeQuiz.id}`] = enteredPasscode;
+            sessionStorage.setItem('unlockedContent', JSON.stringify(unlockedItems));
             setIsPasscodeModalOpen(false);
             setQuizToStartId(passcodeQuiz.id);
             setIsModeSelectionModalOpen(true);
+            setPasscodeQuiz(null);
         } else {
             showToast('Yanlış giriş kodu!');
         }
     };
+
+    const handleContentNavigationRequest = useCallback((item, type) => {
+        if (item.passcode) {
+            // Сначала проверяем, не был ли этот контент уже разблокирован в текущей сессии
+            const unlockedItems = JSON.parse(sessionStorage.getItem('unlockedContent') || '{}');
+            if (unlockedItems[`${type}-${item.id}`] === item.passcode) {
+                navigate(`/${type}s/${item.id}`);
+                return;
+            }
+            // Если не разблокирован, показываем модальное окно
+            setPasscodeContent({ item, type });
+            setIsContentPasscodeModalOpen(true);
+        } else {
+            navigate(`/${type}s/${item.id}`);
+        }
+    }, [navigate]);
+
+    const handleContentPasscodeConfirm = useCallback((enteredPasscode) => {
+        if (passcodeContent && enteredPasscode === passcodeContent.item.passcode) {
+            // При успешном вводе сохраняем "ключ" в sessionStorage
+            const unlockedItems = JSON.parse(sessionStorage.getItem('unlockedContent') || '{}');
+            unlockedItems[`${passcodeContent.type}-${passcodeContent.item.id}`] = enteredPasscode;
+            sessionStorage.setItem('unlockedContent', JSON.stringify(unlockedItems));
+
+            setIsContentPasscodeModalOpen(false);
+            navigate(`/${passcodeContent.type}s/${passcodeContent.item.id}`);
+            setPasscodeContent(null);
+        } else {
+            showToast('Yanlış giriş kodu!');
+        }
+    }, [passcodeContent, navigate, showToast]);
 
     const handleStartSmartPractice = () => {
         if (!profile || !quizResults.length) {
@@ -1722,6 +1892,7 @@ export default function App() {
             title: articleCoreData.title,
             content: articleCoreData.content,
             category: articleCoreData.category,
+            passcode: articleCoreData.passcode || null,
             author_id: session.user.id,
             is_published: articleCoreData.is_published || false
         };
@@ -1810,6 +1981,7 @@ export default function App() {
         const courseDetails = {
             title: courseCoreData.title,
             description: courseCoreData.description,
+            passcode: courseCoreData.passcode || null,
             author_id: session.user.id,
             is_published: courseCoreData.is_published || false
         };
@@ -2344,7 +2516,7 @@ export default function App() {
                         session ? (
                             <div className="bg-orange-50 min-h-screen font-sans text-gray-900">
                                 <header className="bg-white shadow-md sticky top-0 z-40">
-                                    <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
+                                    <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center relative">
                                         <Link to="/" className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500">EduventureWithSeda</Link>
 
                                         <div className="flex-grow flex justify-center px-4">
@@ -2355,40 +2527,39 @@ export default function App() {
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <NotificationBell notifications={notifications} onMarkAsRead={handleMarkNotificationAsRead} onMarkAllAsRead={handleMarkAllNotificationsAsRead} onClearAllNotifications={handleClearAllNotifications} />
-                                            <Link to="/leaderboard">
-                                                <Button as="span" variant="secondary"><LeaderboardIcon /></Button>
-                                            </Link>
                                             <Link to="/profile">
                                                 <Button as="span" variant="secondary"><UserCircleIcon /></Button>
                                             </Link>
-                                            <Button variant="secondary" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                                                {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
-                                            </Button>
+                                            <div className="relative" ref={mobileMenuRef}>
+                                                <Button variant="secondary" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                                                    {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
+                                                </Button>
+                                                {isMobileMenuOpen && (
+                                                    <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+                                                        <nav className="flex flex-col p-2 space-y-1">
+                                                            <Link to="/my-assignments" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><ClipboardCheckIcon /><span className="ml-3">Tapşırıqlarım</span></Link>
+                                                            <Link to="/quizzes" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><BookOpenIcon /><span className="ml-3">Testlər</span></Link>
+                                                            <Link to="/decks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><DuplicateIcon /><span className="ml-3">Kartlar</span></Link>
+                                                            <Link to="/paths" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><PaperAirplaneIcon /><span className="ml-3">Tədris Yolları</span></Link>
+                                                            <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
+                                                            <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
+                                                            <Link to="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><LeaderboardIcon /><span className="ml-3">Reytinq</span></Link>
+                                                            <div className="border-t my-1"></div>
+                                                            {profile?.role === 'admin' && (
+                                                                <>
+                                                                    <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><ShieldCheckIcon /><span className="ml-3">Admin Panel</span></Link>
+                                                                    <Link to="/stats" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><ChartBarIcon /> <span className="ml-3">Statistika</span></Link>
+                                                                    <button onClick={() => { handleQuestionBankRequest(); setIsMobileMenuOpen(false); }} className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><LibraryIcon /> <span className="ml-3">Suallar Bankı</span></button>
+                                                                    <div className="border-t my-1"></div>
+                                                                </>
+                                                            )}
+                                                            <button onClick={() => { handleSignOut(); setIsMobileMenuOpen(false); }} className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50"><LogoutIcon /><span className="ml-3">Çıxış</span></button>
+                                                        </nav>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {isMobileMenuOpen && (
-                                        <div className="bg-white border-t">
-                                            <nav className="flex flex-col p-4 space-y-2">
-                                                <Link to="/my-assignments" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ClipboardCheckIcon /><span className="ml-3">Tapşırıqlarım</span></Link>
-                                                <Link to="/quizzes" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><BookOpenIcon /><span className="ml-3">Testlər</span></Link>
-                                                <Link to="/decks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DuplicateIcon /><span className="ml-3">Kartlar</span></Link>
-                                                <Link to="/paths" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><PaperAirplaneIcon /><span className="ml-3">Tədris Yolları</span></Link>
-                                                <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
-                                                <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
-                                                <div className="border-t my-2"></div>
-                                                {profile?.role === 'admin' && (
-                                                    <>
-                                                        <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ShieldCheckIcon /><span className="ml-3">Admin Panel</span></Link>
-                                                        <Link to="/stats" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-2 text-gray-700 rounded-md hover:bg-gray-100"><ChartBarIcon /> <span className="ml-3">Statistika</span></Link>
-                                                        <button onClick={() => { handleQuestionBankRequest(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-gray-700 rounded-md hover:bg-gray-100"><LibraryIcon /> <span className="ml-3">Suallar Bankı</span></button>
-                                                        <div className="border-t my-2"></div>
-                                                    </>
-                                                )}
-                                                <button onClick={() => { handleSignOut(); setIsMobileMenuOpen(false); }} className="flex items-center w-full p-2 text-red-600 rounded-md hover:bg-red-50"><LogoutIcon /><span className="ml-3">Çıxış</span></button>
-                                            </nav>
-                                        </div>
-                                    )}
                                 </header>
                                 <main className="container mx-auto px-4 py-6 md:py-8">
                                     <RecommendationCard
@@ -2420,10 +2591,10 @@ export default function App() {
                                         <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                         <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
                                         <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} allUsers={allUsers} />} />
-                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} />} />
-                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
-                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
-                                        <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />} />
+                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} onNavigate={handleContentNavigationRequest} />} />
+                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} />} />
+                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} onNavigate={handleContentNavigationRequest} />} />
+                                        <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} />} />
                                         <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} />} />
                                         <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
                                         <Route path="/decks" element={<PublicFlashcardDeckListPage decks={flashcardDecks} userReviews={userFlashcardReviews} />} />
@@ -2456,11 +2627,11 @@ export default function App() {
                                             <Route path="decks/edit/:deckId" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
                                         </Route>
 
-                                        {/* === PUBLIC & USER ROUTES === */}
-                                        <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz }} />} />
-                                        <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes }} />} />
-                                        <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} />
-                                        <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults }} />} />
+                                        {/* === PUBLIC & USER ROUTES (with passcode and due date protection) === */}
+                                        <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz, setPasscodeQuiz, setIsPasscodeModalOpen, showToast }} />} />
+                                        <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes, profile, setPasscodeQuiz, setIsPasscodeModalOpen, showToast }} />} />
+                                        <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} /> {/* Custom practice doesn't need passcode */}
+                                        <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults }} />} /> {/* Results/reviews don't need passcode */}
                                         <Route path="/quiz/:id/review" element={<QuizPageWrapper pageType="review" {...{ quizzes, lastResult, quizResults, session, profile, fetchComments, postComment, deleteComment }} />} />
                                     </Routes>
                                 </main>
@@ -2472,7 +2643,7 @@ export default function App() {
             </Suspense>
             <Toast message={toast.message} isVisible={toast.isVisible} />
             <Modal isOpen={deleteModal.isOpen} onClose={() => setDeleteModal({ isOpen: false, idToDelete: null, type: null })} onConfirm={confirmDelete} title={`${deleteModal.type} silməni təsdiqləyin`}><p>Bu {deleteModal.type} silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarılmazdır.</p></Modal>
-            <PasscodeModal isOpen={isPasscodeModalOpen} onClose={() => setIsPasscodeModalOpen(false)} onConfirm={handlePasscodeConfirm} showToast={showToast} />
+            <PasscodeModal isOpen={isPasscodeModalOpen || isContentPasscodeModalOpen} onClose={() => { setIsPasscodeModalOpen(false); setIsContentPasscodeModalOpen(false); }} onConfirm={isPasscodeModalOpen ? handlePasscodeConfirm : handleContentPasscodeConfirm} showToast={showToast} />
             <ModeSelectionModal isOpen={isModeSelectionModalOpen} onClose={() => setIsModeSelectionModalOpen(false)} onSelect={handleModeSelected} />
             <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportQuestions} showToast={showToast} />
             <AddFromBankModal isOpen={isAddFromBankModalOpen} onClose={() => setIsAddFromBankModalOpen(false)} onAdd={handleAddQuestionsFromBank} showToast={showToast} questionBank={questionBank} />

@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import { DocumentTextIcon, CheckCircleIcon, TagIcon, SearchIcon } from '../assets/icons';
 
-const PublicArticleListPage = ({ articles, articleProgress }) => {
+const PublicArticleListPage = ({ articles, articleProgress, onNavigate }) => {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const completedArticleIds = new Set(articleProgress.map(p => p.article_id));
@@ -47,7 +46,7 @@ const PublicArticleListPage = ({ articles, articleProgress }) => {
                     {filteredArticles.map(article => {
                         const isCompleted = completedArticleIds.has(article.id);
                         return (
-                            <Link to={`/articles/${article.id}`} key={article.id}>
+                            <div key={article.id} onClick={() => onNavigate(article, 'article')} className="cursor-pointer">
                                 <Card className={`hover:shadow-orange-200 hover:-translate-y-1 transition-transform duration-200 h-full flex flex-col ${isCompleted ? 'bg-green-50' : ''}`}>
                                     <div className="flex-grow">
                                         <div className="flex justify-between items-start">
@@ -63,7 +62,7 @@ const PublicArticleListPage = ({ articles, articleProgress }) => {
                                         <span className="flex items-center gap-1"><DocumentTextIcon className="w-4 h-4" /> Məqalə</span>
                                     </div>
                                 </Card>
-                            </Link>
+                            </div>
                         )
                     })}
                 </div>

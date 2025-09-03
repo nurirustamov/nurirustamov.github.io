@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ClipboardCheckIcon, DuplicateIcon, StarIcon, FireIcon, BookOpenIcon, CollectionIcon, PaperAirplaneIcon } from '../assets/icons';
+import { ClipboardCheckIcon, DuplicateIcon, StarIcon, FireIcon, BookOpenIcon, CollectionIcon, PaperAirplaneIcon, DocumentTextIcon } from '../assets/icons';
 
 // Компонент для отображения прогресса уровня, взятый из ProfilePage
 const LevelProgressBar = ({ experience }) => {
@@ -78,8 +78,9 @@ const DashboardPage = ({ profile, activeAssignmentsCount, dueFlashcardsCount }) 
             {/* Быстрые действия */}
             <Card>
                 <h2 className="text-xl font-bold mb-4">Haradan başlayaq?</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Button onClick={() => navigate('/quizzes')} variant="secondary" className="h-24 text-lg"><BookOpenIcon /> Testlər</Button>
+                    <Button onClick={() => navigate('/articles')} variant="secondary" className="h-24 text-lg"><DocumentTextIcon /> Məqalələr</Button>
                     <Button onClick={() => navigate('/courses')} variant="secondary" className="h-24 text-lg"><CollectionIcon /> Kurslar</Button>
                     <Button onClick={() => navigate('/paths')} variant="secondary" className="h-24 text-lg"><PaperAirplaneIcon /> Tədris Yolları</Button>
                 </div>
