@@ -2527,9 +2527,6 @@ export default function App() {
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <NotificationBell notifications={notifications} onMarkAsRead={handleMarkNotificationAsRead} onMarkAllAsRead={handleMarkAllNotificationsAsRead} onClearAllNotifications={handleClearAllNotifications} />
-                                            <Link to="/profile">
-                                                <Button as="span" variant="secondary"><UserCircleIcon /></Button>
-                                            </Link>
                                             <div className="relative" ref={mobileMenuRef}>
                                                 <Button variant="secondary" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                                                     {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
@@ -2544,6 +2541,7 @@ export default function App() {
                                                             <Link to="/courses" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><CollectionIcon /><span className="ml-3">Kurslar</span></Link>
                                                             <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><DocumentTextIcon /><span className="ml-3">Məqalələr</span></Link>
                                                             <Link to="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><LeaderboardIcon /><span className="ml-3">Reytinq</span></Link>
+                                                            <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><UserCircleIcon /><span className="ml-3">Profil</span></Link>
                                                             <div className="border-t my-1"></div>
                                                             {profile?.role === 'admin' && (
                                                                 <>
