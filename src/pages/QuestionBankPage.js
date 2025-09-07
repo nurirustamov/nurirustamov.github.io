@@ -30,6 +30,7 @@ const QuestionBankPage = ({ questionBank, onSave, onDelete, showToast }) => {
             correctAnswer: true,
             orderItems: ['', ''],
             imageUrl: '',
+            audioUrl: '',
             explanation: '',
             points: 1,
             tags: []

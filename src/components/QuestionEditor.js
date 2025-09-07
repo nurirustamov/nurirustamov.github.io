@@ -218,6 +218,10 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSa
                     <label className="block text-sm font-medium text-gray-700">Şəkil URL-i (istəyə bağlı)</label>
                     <input type="text" name="imageUrl" value={localQuestion.imageUrl || ''} onChange={handleInputChange} placeholder="https://example.com/image.png" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
                 </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Audio URL-i (istəyə bağlı)</label>
+                    <input type="text" name="audioUrl" value={localQuestion.audioUrl || ''} onChange={handleInputChange} placeholder="https://example.com/audio.mp3" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
+                </div>
                 <TagEditor tags={localQuestion.tags || []} onUpdate={handleTagsChange} />
                 <div>
                     <label className="block text-sm font-medium text-gray-700">İzah (istəyə bağlı)</label>

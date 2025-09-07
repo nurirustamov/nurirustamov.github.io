@@ -8,11 +8,14 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "@tinymce/tinymce-react": "^6.3.0",
     "chart.js": "^4.4.3",
+    "dompurify": "^3.2.6",
     "easymde": "^2.20.0",
     "gh-pages": "^6.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.2",
+    "mammoth": "^1.10.0",
     "papaparse": "^5.5.3",
     "react": "^18.3.1",
     "react-beautiful-dnd": "^13.1.1",
@@ -24,6 +27,8 @@
     "react-simplemde-editor": "^5.2.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "turndown": "^7.2.1",
+    "turndown-plugin-gfm": "^1.0.2",
     "usehooks-ts": "^3.1.1",
     "web-vitals": "^2.1.4"
   },
@@ -52,5 +57,11 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@tailwindcss/typography": "^0.5.16",
+    "autoprefixer": "^10.4.21",
+    "tailwindcss": "^4.1.13"
   }
 }

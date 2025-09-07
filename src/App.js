@@ -4,6 +4,9 @@ import Papa from 'papaparse';
 import { useOnClickOutside } from 'usehooks-ts';
 import { supabase } from './supabaseClient';
 
+// --- Hooks ---
+import { useBookmarks } from './hooks/useBookmarks';
+
 // --- UI Компоненты ---
 import Modal from './components/ui/Modal';
 import Toast from './components/ui/Toast';
@@ -13,7 +16,7 @@ import RecommendationCard from './components/ui/RecommendationCard';
 import SmartRecommendationCard from './components/ui/SmartRecommendationCard';
 import AssignmentModal from './components/ui/AssignmentModal';
 import GlobalSearch from './components/ui/GlobalSearch';
-import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon } from './assets/icons';
+import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon, BookmarkIcon } from './assets/icons';
 
 // --- Lazy Loaded Pages ---
 const AuthPage = lazy(() => import('./pages/AuthPage'));
@@ -56,6 +59,7 @@ const StudentGroupEditorPage = lazy(() => import('./pages/StudentGroupEditorPage
 const MyAssignmentsPage = lazy(() => import('./pages/MyAssignmentsPage'));
 const QuestManagementPage = lazy(() => import('./pages/QuestManagementPage'));
 const GroupAnalysisPage = lazy(() => import('./pages/GroupAnalysisPage'));
+const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
 
 const SuspenseFallback = () => (
     <div className="w-full h-screen flex items-center justify-center bg-orange-50">
@@ -298,7 +302,7 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
 
 // --- Компоненты-обертки для страниц (вынесены из App для стабильности) ---
 
-const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus, onAssignRequest }) => {
+const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const queryParams = new URLSearchParams(location.search);
@@ -322,6 +326,8 @@ const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, o
         isAdmin={isAdmin}
         onToggleStatus={onToggleStatus}
         onAssignRequest={onAssignRequest}
+        toggleBookmark={toggleBookmark}
+        isBookmarked={isBookmarked}
     />;
 };
 
@@ -492,6 +498,10 @@ const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResu
 const LearningPathViewPageWrapper = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, session }) => {
     return <LearningPathViewPage learningPaths={learningPaths} courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} />;
 };
+const BookmarksPageWrapper = ({ bookmarks, quizzes, articles, courses, onNavigate, onStartQuiz, toggleBookmark, isBookmarked }) => (
+    <BookmarksPage bookmarks={bookmarks} quizzes={quizzes} articles={articles} courses={courses} onNavigate={onNavigate} onStartQuiz={onStartQuiz} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />
+);
+
 const GlobalSearchPageWrapper = ({ quizzes, courses, articles, learningPaths, onStartQuiz }) => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
@@ -658,6 +668,13 @@ export default function App() {
     const [lastResult, setLastResult] = useState(null);
     const [toast, setToast] = useState({ message: '', isVisible: false });
 
+    const showToast = useCallback((message) => {
+        setToast({ message, isVisible: true });
+        setTimeout(() => setToast({ message: '', isVisible: false }), 3000);
+    }, []);
+
+    const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks(session, showToast);
+
     const [quizToStartId, setQuizToStartId] = useState(null);
     const [isModeSelectionModalOpen, setIsModeSelectionModalOpen] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, idToDelete: null, type: null });
@@ -710,11 +727,6 @@ export default function App() {
 
         return { pendingReviewCount, newUsersTodayCount, totalUsersCount, topStudents };
     }, [quizResults, allUsers, profile]);
-
-    const showToast = useCallback((message) => {
-        setToast({ message, isVisible: true });
-        setTimeout(() => setToast({ message: '', isVisible: false }), 3000);
-    }, []);
 
     const generateSmartRecommendation = useCallback(async () => {
         if (!profile || !quizResults.length) return;
@@ -2534,6 +2546,7 @@ export default function App() {
                                                 {isMobileMenuOpen && (
                                                     <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 z-50">
                                                         <nav className="flex flex-col p-2 space-y-1">
+                                                            <Link to="/bookmarks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><BookmarkIcon filled={false} /><span className="ml-3">Əlfəcinlərim</span></Link>
                                                             <Link to="/my-assignments" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><ClipboardCheckIcon /><span className="ml-3">Tapşırıqlarım</span></Link>
                                                             <Link to="/quizzes" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><BookOpenIcon /><span className="ml-3">Testlər</span></Link>
                                                             <Link to="/decks" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"><DuplicateIcon /><span className="ml-3">Kartlar</span></Link>
@@ -2583,15 +2596,16 @@ export default function App() {
                                             dueFlashcardsCount={dueFlashcardsCount}
                                         />} />
                                         <Route path="/search" element={<GlobalSearchPageWrapper {...{ quizzes, courses, articles, learningPaths, onStartQuiz: handleStartQuizRequest }} />} />
-                                        <Route path="/quizzes" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} />} />
+                                        <Route path="/quizzes" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
                                         <Route path="/my-assignments" element={<MyAssignmentsPage assignments={userAssignments} quizzes={quizzes} courses={courses} onStartQuiz={handleStartQuizRequest} quizResults={quizResults} completedCourses={completedCourses} userQuests={activeUserQuests} />} />
+                                        <Route path="/bookmarks" element={<BookmarksPageWrapper bookmarks={bookmarks} quizzes={quizzes} articles={articles} courses={courses} onNavigate={handleContentNavigationRequest} onStartQuiz={handleStartQuizRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
                                         <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} profile={profile} showToast={showToast} />} />
                                         <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                         <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
                                         <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} allUsers={allUsers} />} />
-                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} onNavigate={handleContentNavigationRequest} />} />
+                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
                                         <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} />} />
-                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} onNavigate={handleContentNavigationRequest} />} />
+                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
                                         <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} />} />
                                         <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} />} />
                                         <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />

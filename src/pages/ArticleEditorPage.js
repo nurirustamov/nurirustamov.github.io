@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import SimpleMdeReact from "react-simplemde-editor";
-import "easymde/dist/easymde.min.css";
+import { Editor } from '@tinymce/tinymce-react';
+import mammoth from 'mammoth';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import ComboBox from '../components/ui/ComboBox';
-import { ArrowLeftIcon, CheckIcon, DocumentTextIcon, PencilAltIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckIcon, DocumentTextIcon, PencilAltIcon, UploadIcon } from '../assets/icons';
 
 const ArticleEditorPage = ({ article, onSave, showToast, existingArticleCategories, quizzes }) => {
     const [draft, setDraft] = useState(article);
     const [selectedQuizIds, setSelectedQuizIds] = useState(new Set());
     const [selectedQuizCategory, setSelectedQuizCategory] = useState('all');
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
+    const editorRef = useRef(null); // Ref for TinyMCE editor instance
 
     useEffect(() => {
         setDraft(article);
@@ -30,8 +30,8 @@ const ArticleEditorPage = ({ article, onSave, showToast, existingArticleCategori
         setDraft(prev => ({ ...prev, category: value }));
     };
 
-    const onContentChange = (value) => {
-        setDraft(prev => ({ ...prev, content: value }));
+    const onContentChange = (content) => {
+        setDraft(prev => ({ ...prev, content: content }));
     };
 
     const handleQuizSelection = (quizId) => {
@@ -52,12 +52,42 @@ const ArticleEditorPage = ({ article, onSave, showToast, existingArticleCategori
         onSave({ ...draft, selectedQuizIds: Array.from(selectedQuizIds) });
     };
 
-    const editorOptions = useMemo(() => {
-        return {
-            spellChecker: false,
-            toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "image", "|", "preview", "side-by-side", "fullscreen", "|", "guide"],
+    const handleWordUpload = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        showToast('Word sənədi çevrilir...');
+        const reader = new FileReader();
+
+        reader.onload = (loadEvent) => {
+            const arrayBuffer = loadEvent.target.result;
+            mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+                .then(result => {
+                    // Insert HTML directly into TinyMCE editor
+                    if (editorRef.current) {
+                        editorRef.current.setContent(result.value);
+                        onContentChange(result.value); // Also update React state
+                    }
+                    showToast('Məqalə uğurla idxal edildi!', 'success');
+                })
+                .catch(error => {
+                    console.error("Docx to HTML conversion error:", error);
+                    showToast('Word sənədini çevirərkən xəta baş verdi.', 'error');
+                });
         };
-    }, []);
+
+        reader.onerror = (error) => {
+            console.error("File reading error:", error);
+            showToast('Sənədi oxuyarkən xəta baş verdi.', 'error');
+        };
+
+        reader.readAsArrayBuffer(file);
+        event.target.value = null; // Reset file input
+    };
+
+    const triggerFileUpload = () => {
+        fileInputRef.current.click();
+    };
 
     const quizCategories = useMemo(() => {
         return ['all', ...new Set((quizzes || []).map(q => q.category || 'Kateqoriyasız'))];
@@ -137,21 +167,40 @@ const ArticleEditorPage = ({ article, onSave, showToast, existingArticleCategori
                 {/* Right Panel */}
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
-                        <h3 className="font-bold text-gray-800 mb-3">Məqalə Məzmunu</h3>
-                        <SimpleMdeReact
-                            className="prose max-w-none"
-                            id="article-content-editor"
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-gray-800">Məqalə Məzmunu</h3>
+                            <div>
+                                <input type="file" ref={fileInputRef} onChange={handleWordUpload} accept=".docx" className="hidden" />
+                                <Button onClick={triggerFileUpload} variant="secondary"><UploadIcon /> Word-dən idxal et</Button>
+                            </div>
+                        </div>
+                        <Editor
+                            apiKey="ocpsuuiv9mu6iw0y1u66hwuexghbh8jfdb2tmom17zk5nqo5"
+                            onInit={(evt, editor) => editorRef.current = editor}
                             value={draft.content || ''}
-                            onChange={onContentChange}
-                            options={editorOptions}
+                            onEditorChange={onContentChange}
+                            init={{
+                                height: 500,
+                                menubar: false,
+                                plugins: [
+                                    'advlist autolink lists link image charmap print preview anchor',
+                                    'searchreplace visualblocks code fullscreen',
+                                    'insertdatetime media table paste code help wordcount'
+                                ],
+                                toolbar: 'undo redo | formatselect | ' +
+                                    'bold italic backcolor | alignleft aligncenter ' +
+                                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                                    'removeformat | help'
+                            }}
                         />
                     </Card>
-                    <Card>
+                    {/* Preview Card is no longer needed as TinyMCE is WYSIWYG */}
+                    {/* <Card>
                         <h3 className="font-bold text-gray-800 mb-3">Önizləmə</h3>
                         <div className="prose max-w-none p-4 border rounded-md bg-gray-50 min-h-[200px]">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{draft.content || 'Önizləmə üçün məzmun daxil edin...'}</ReactMarkdown>
                         </div>
-                    </Card>
+                    </Card> */}
                 </div>
             </div>
         </div>

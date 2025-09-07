@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import Card from '../components/ui/Card';
-import { CollectionIcon, SearchIcon } from '../assets/icons';
+import { CollectionIcon, SearchIcon, BookmarkIcon } from '../assets/icons';
 
-const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, onNavigate }) => {
+const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, onNavigate, toggleBookmark, isBookmarked }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const coursesWithProgress = useMemo(() => {
@@ -62,8 +62,18 @@ const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, 
             {coursesWithProgress.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {coursesWithProgress.map(course => (
-                        <div key={course.id} onClick={() => onNavigate(course, 'course')} className="cursor-pointer">
-                            <Card className="hover:shadow-orange-200 hover:-translate-y-1 transition-transform duration-200 h-full flex flex-col">
+                        <div key={course.id} onClick={() => onNavigate(course, 'course')} className="cursor-pointer relative group transition-transform duration-200 hover:-translate-y-1">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleBookmark(course.id, 'course');
+                                }}
+                                className="absolute top-3 right-3 p-1 rounded-full hover:bg-orange-100 text-orange-500 z-10"
+                                title={isBookmarked(course.id, 'course') ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}
+                            >
+                                <BookmarkIcon filled={isBookmarked(course.id, 'course')} />
+                            </button>
+                            <Card className="group-hover:shadow-orange-200 transition-shadow duration-200 h-full flex flex-col">
                                 <div className="flex-grow">
                                     <h2 className="text-xl font-bold text-gray-800 mb-2">{course.title}</h2>
                                     <p className="text-sm text-gray-600">{course.description}</p>

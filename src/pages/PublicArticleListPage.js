@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import Card from '../components/ui/Card';
-import { DocumentTextIcon, CheckCircleIcon, TagIcon, SearchIcon } from '../assets/icons';
+import { DocumentTextIcon, CheckCircleIcon, TagIcon, SearchIcon, BookmarkIcon } from '../assets/icons';
 
-const PublicArticleListPage = ({ articles, articleProgress, onNavigate }) => {
+const PublicArticleListPage = ({ articles, articleProgress, onNavigate, toggleBookmark, isBookmarked }) => {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const completedArticleIds = new Set(articleProgress.map(p => p.article_id));
@@ -45,9 +45,20 @@ const PublicArticleListPage = ({ articles, articleProgress, onNavigate }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredArticles.map(article => {
                         const isCompleted = completedArticleIds.has(article.id);
+                        const isSaved = isBookmarked(article.id, 'article');
                         return (
-                            <div key={article.id} onClick={() => onNavigate(article, 'article')} className="cursor-pointer">
-                                <Card className={`hover:shadow-orange-200 hover:-translate-y-1 transition-transform duration-200 h-full flex flex-col ${isCompleted ? 'bg-green-50' : ''}`}>
+                            <div key={article.id} onClick={() => onNavigate(article, 'article')} className="cursor-pointer relative group transition-transform duration-200 hover:-translate-y-1">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleBookmark(article.id, 'article');
+                                    }}
+                                    className="absolute top-3 right-3 p-1 rounded-full hover:bg-orange-100 text-orange-500 z-10"
+                                    title={isSaved ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}
+                                >
+                                    <BookmarkIcon filled={isSaved} />
+                                </button>
+                                <Card className={`group-hover:shadow-orange-200 transition-shadow duration-200 h-full flex flex-col ${isCompleted ? 'bg-green-50' : ''}`}>
                                     <div className="flex-grow">
                                         <div className="flex justify-between items-start">
                                             <h2 className="text-xl font-bold text-gray-800 mb-2 flex-1 pr-2">{article.title}</h2>

@@ -24,6 +24,52 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
         onDraftChange({ ...quiz, questions: newQuestions });
     };
 
+    const generateQuestion = (type, text, points = 1) => ({
+        id: Date.now() + Math.random(),
+        text,
+        type,
+        points,
+        options: ['', ''],
+        correctAnswers: [],
+        correctAnswer: true,
+        orderItems: ['', ''],
+        imageUrl: '',
+        audioUrl: '',
+        explanation: ''
+    });
+
+    const generate9thGradeTemplate = () => {
+        if (!window.confirm('Mövcud suallar silinəcək və 9-cu sinif şablonu tətbiq ediləcək. Davam etmək istəyirsiniz?')) return;
+        const questions = [
+            // Listening
+            ...Array.from({ length: 3 }, (_, i) => generateQuestion('single', `Sual ${i + 1} (Listening)`)),
+            generateQuestion('trueFalse', 'Sual 4 (Listening - True/False)'),
+            // Reading 1
+            ...Array.from({ length: 3 }, (_, i) => generateQuestion('single', `Sual ${i + 5} (Reading)`)),
+            // Reading 2
+            ...Array.from({ length: 5 }, (_, i) => generateQuestion('single', `Sual ${i + 8} (Reading)`)),
+            // Grammar
+            ...Array.from({ length: 13 }, (_, i) => generateQuestion('single', `Sual ${i + 13} (Grammar)`)),
+            // Writing
+            generateQuestion('open', 'Sual 26 (Writing)', 10)
+        ];
+        handleQuestionsChange(questions);
+    };
+
+    const generate11thGradeTemplate = () => {
+        if (!window.confirm('Mövcud suallar silinəcək və 11-ci sinif şablonu tətbiq ediləcək. Davam etmək istəyirsiniz?')) return;
+        const questions = [
+            // Listening
+            ...Array.from({ length: 3 }, (_, i) => generateQuestion('single', `Sual ${i + 1} (Listening)`)),
+            // Grammar
+            ...Array.from({ length: 19 }, (_, i) => generateQuestion('single', `Sual ${i + 4} (Grammar)`)),
+            // Reading
+            ...Array.from({ length: 4 }, (_, i) => generateQuestion('single', `Sual ${i + 23} (Reading)`)),
+            ...Array.from({ length: 4 }, (_, i) => generateQuestion('open', `Sual ${i + 27} (Reading - Open)`))
+        ];
+        handleQuestionsChange(questions);
+    };
+
     const addQuestion = () => {
         const newQuestion = {
             id: Date.now(),
@@ -34,6 +80,7 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
             correctAnswer: true,
             orderItems: ['', ''],
             imageUrl: '',
+            audioUrl: '',
             explanation: '',
             points: 1
         };
@@ -123,6 +170,7 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                             <div className="space-y-3 pt-2 border-t">
                                 <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleQuestions" checked={!!quiz.shuffleQuestions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Sualları qarışdır</span></label>
                                 <label className="flex items-center cursor-pointer"><input type="checkbox" name="shuffleOptions" checked={!!quiz.shuffleOptions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Variantları qarışdır</span></label>
+                                <label className="flex items-center cursor-pointer"><input type="checkbox" name="display_all_questions" checked={!!quiz.display_all_questions} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Bütün sualları bir səhifədə göstər</span></label>
                                 <label className="flex items-center cursor-pointer"><input type="checkbox" name="is_published" checked={!!quiz.is_published} onChange={handleQuizInfoChange} className="h-4 w-4 text-orange-600 rounded border-gray-300" /> <span className="ml-2 text-sm text-gray-700">Dərc et (istifadəçilər üçün görünən)</span></label>
                             </div>
                         </div>
@@ -157,9 +205,11 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                         <div className="flex flex-wrap gap-4 justify-between items-center mb-4">
                             <h2 className="text-xl font-bold text-gray-800">Suallar ({quiz.questions.length})</h2>
                             <div className="flex flex-wrap gap-2">
-                                <Button onClick={onAddFromBankRequest} variant="secondary"><LibraryIcon />Bankdan əlavə et</Button>
-                                <Button onClick={onImportRequest} variant="secondary"><UploadIcon />CSV-dən idxal et</Button>
-                                <Button onClick={addQuestion}><PlusIcon />{quiz.questions.length === 0 ? 'İlk sualı əlavə et' : 'Sual əlavə et'}</Button>
+                                <Button onClick={generate9thGradeTemplate} variant="secondary">9-cu Sinif Şablonu</Button>
+                                <Button onClick={generate11thGradeTemplate} variant="secondary">11-ci Sinif Şablonu</Button>
+                                <Button onClick={onAddFromBankRequest} variant="secondary"><LibraryIcon />Bankdan</Button>
+                                <Button onClick={onImportRequest} variant="secondary"><UploadIcon />CSV-dən</Button>
+                                <Button onClick={addQuestion}><PlusIcon />Yeni Sual</Button>
                             </div>
                         </div>
                         <div className="space-y-4">
