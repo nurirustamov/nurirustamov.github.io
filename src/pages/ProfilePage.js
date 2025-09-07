@@ -3,30 +3,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ChartBarIcon, TrophyIcon, StarIcon, FireIcon } from '../assets/icons';
+import { ChartBarIcon, TrophyIcon } from '../assets/icons';
 import AchievementIcon from '../components/ui/AchievementIcon';
-
-// Новый компонент для отображения прогресса уровня
-const LevelProgressBar = ({ experience }) => {
-    const currentLevel = Math.floor(experience / 100) + 1;
-    const nextLevelXp = currentLevel * 100;
-    const currentLevelXp = (currentLevel - 1) * 100;
-    const xpIntoLevel = experience - currentLevelXp;
-    const xpForNextLevel = nextLevelXp - currentLevelXp;
-    const progressPercentage = (xpIntoLevel / xpForNextLevel) * 100;
-
-    return (
-        <div>
-            <div className="flex justify-between items-center mb-1">
-                <span className="font-bold text-orange-600">Səviyyə {currentLevel}</span>
-                <span className="text-sm text-gray-500">{experience} / {nextLevelXp} XP</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-gradient-to-r from-orange-400 to-red-500 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div>
-            </div>
-        </div>
-    );
-};
+import GamificationStats from '../components/GamificationStats';
 
 const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchievements, allAchievements }) => {
     const [loading, setLoading] = useState(false);
@@ -103,9 +82,6 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
         return <div>Yüklənir...</div>;
     }
 
-    const experience = profile.experience_points || 0;
-    const dailyStreak = profile.daily_streak || 0;
-
     return (
         <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -115,30 +91,8 @@ const ProfilePage = ({ session, profile, showToast, onProfileUpdate, userAchieve
                 </Link>
             </div>
 
-            {/* Gamification Stats Card */}
-            <Card>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                    <div className="md:col-span-2">
-                        <LevelProgressBar experience={experience} />
-                    </div>
-                    <div className="flex justify-around md:justify-end gap-6 text-center">
-                        <div className="flex flex-col items-center">
-                            <div className="flex items-center gap-2 text-2xl font-bold text-yellow-500">
-                                <StarIcon />
-                                <span>{experience}</span>
-                            </div>
-                            <span className="text-sm text-gray-500">Təcrübə Xalı</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <div className="flex items-center gap-2 text-2xl font-bold text-red-500">
-                                <FireIcon />
-                                <span>{dailyStreak}</span>
-                            </div>
-                            <span className="text-sm text-gray-500">Günlük Seriya</span>
-                        </div>
-                    </div>
-                </div>
-            </Card>
+            {/* Gamification Stats */}
+            <GamificationStats profile={profile} />
 
             <Card>
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><TrophyIcon /> Qazanılmış Nailiyyətlər</h2>

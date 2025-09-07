@@ -1,14 +1,14 @@
 import React from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { PlusIcon, EditIcon, TrashIcon, EyeIcon, EyeOffIcon, ClipboardCheckIcon } from '../assets/icons';
+import { PlusIcon, EditIcon, TrashIcon, EyeIcon, EyeOffIcon, ClipboardCheckIcon, LockClosedIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('az-AZ');
 };
 
-const CourseListPage = ({ courses, onAddNew, onEdit, onDelete, onToggleStatus, onAssignRequest }) => {
+const CourseListPage = ({ courses, onAddNew, onEdit, onDelete, onToggleStatus, onAssignRequest, onSetVisibilityRequest }) => {
     return (
         <Card>
             <div className="flex justify-between items-center mb-4">
@@ -21,6 +21,7 @@ const CourseListPage = ({ courses, onAddNew, onEdit, onDelete, onToggleStatus, o
                     <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Başlıq</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Görünürlük</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yaradılma Tarixi</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Əməliyyatlar</th>
                     </tr>
@@ -34,9 +35,15 @@ const CourseListPage = ({ courses, onAddNew, onEdit, onDelete, onToggleStatus, o
                                         {course.is_published ? 'Dərc edilib' : 'Qaralama'}
                                     </span>
                             </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${course.visibility === 'public' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                                        {course.visibility === 'public' ? 'Hər kəsə açıq' : 'Məhdud'}
+                                    </span>
+                            </td>
                             <td className="px-4 py-4 whitespace-nowrap">{formatDate(course.created_at)}</td>
                             <td className="px-4 py-4 text-sm font-medium">
                                 <div className="flex items-center gap-2 flex-wrap">
+                                    <Button size="sm" variant="secondary" onClick={() => onSetVisibilityRequest(course.id, course.title, 'course', course.visibility)}><LockClosedIcon /> Giriş</Button>
                                     <Button size="sm" variant="secondary" onClick={() => onAssignRequest(course.id, course.title, 'course')}><ClipboardCheckIcon /> Təyin et</Button>
                                     <Button size="sm" variant="secondary" onClick={() => onEdit(course.id)}><EditIcon /> Redaktə et</Button>
                                     <Button size="sm" variant="secondary" onClick={() => onToggleStatus(course.id, !course.is_published)} title={course.is_published ? 'Gizlət' : 'Dərc et'}>

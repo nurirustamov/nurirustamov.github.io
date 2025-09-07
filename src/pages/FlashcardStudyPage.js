@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { ArrowLeftIcon, CheckCircleIcon } from '../assets/icons';
+import { useHasAccess } from '../hooks/useHasAccess';
 
 // --- Animation Styles ---
 const AnimationStyles = () => (
@@ -45,8 +46,9 @@ const calculateSpacedRepetition = (review, quality) => {
 };
 
 // --- Main Component ---
-const FlashcardStudyPage = ({ decks, userReviews, onUpdateReview }) => {
+const FlashcardStudyPage = ({ decks, userReviews, onUpdateReview, profile, showToast }) => {
     const { deckId } = useParams();
+    const navigate = useNavigate();
     const [studySession, setStudySession] = useState({ cards: [], currentCardIndex: 0 });
     const [cardToRender, setCardToRender] = useState(null);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -54,9 +56,17 @@ const FlashcardStudyPage = ({ decks, userReviews, onUpdateReview }) => {
     const [isSessionLoading, setIsSessionLoading] = useState(true);
 
     const deck = useMemo(() => decks.find(d => d.id === Number(deckId)), [decks, deckId]);
+    const hasAccess = useHasAccess(deck, profile);
 
     useEffect(() => {
         if (!deck) return;
+
+        if (!hasAccess) {
+            showToast('Bu kolodaya giriş üçün icazəniz yoxdur.');
+            navigate('/decks');
+            return;
+        }
+
         const now = new Date().toISOString();
         const allCards = deck.flashcards || [];
         const dueReviews = (userReviews || []).filter(review => allCards.some(c => c.id === review.card_id) && review.next_review_at <= now);
@@ -70,7 +80,7 @@ const FlashcardStudyPage = ({ decks, userReviews, onUpdateReview }) => {
             setCardToRender(cardsToStudy[0]);
         }
         setIsSessionLoading(false);
-    }, [deck, userReviews]);
+    }, [deck, userReviews, hasAccess, navigate, showToast]);
 
     const handleFlip = () => {
         setIsFlipped(true);
@@ -101,6 +111,9 @@ const FlashcardStudyPage = ({ decks, userReviews, onUpdateReview }) => {
 
     if (isSessionLoading) return <Card className="text-center py-12">Təkrar sessiyası hazırlanır...</Card>;
     if (!deck) return <Card className="text-center py-12">Koloda tapılmadı.</Card>;
+    if (!hasAccess) {
+        return <div className="text-center py-12">Giriş yoxlanılır...</div>;
+    }
 
     const isSessionDone = studySession.currentCardIndex >= studySession.cards.length;
 

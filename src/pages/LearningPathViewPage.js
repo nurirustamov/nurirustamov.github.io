@@ -4,7 +4,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { ArrowLeftIcon, CollectionIcon, CheckCircleIcon } from '../assets/icons';
 
-const LearningPathViewPage = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, session }) => {
+const LearningPathViewPage = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, profile }) => {
     const { pathId } = useParams();
 
     const path = useMemo(() => {
@@ -14,8 +14,8 @@ const LearningPathViewPage = ({ learningPaths, courses, onStartQuiz, articleProg
     const contentWithStatus = useMemo(() => {
         if (!path || !courses) return [];
 
-        const completedArticleIds = new Set((articleProgress || []).map(p => p.article_id));
-        const completedQuizIds = new Set((quizResults || []).filter(r => r.user_id === session?.user.id).map(r => r.quizId));
+        const completedArticleIds = new Set((articleProgress || []).filter(p => p.user_id === profile?.id).map(p => p.article_id));
+        const completedQuizIds = new Set((quizResults || []).filter(r => r.user_id === profile?.id).map(r => r.quizId));
 
         return (path.path_items || []).sort((a, b) => a.order - b.order).map(item => {
             const courseDetails = courses.find(c => c.id === item.course_id);
@@ -40,7 +40,7 @@ const LearningPathViewPage = ({ learningPaths, courses, onStartQuiz, articleProg
 
             return { ...item, course: courseDetails, isCompleted, progress };
         });
-    }, [path, courses, articleProgress, quizResults, session]);
+    }, [path, courses, articleProgress, quizResults, profile]);
 
     const pathProgress = useMemo(() => {
         const totalItems = contentWithStatus.length;

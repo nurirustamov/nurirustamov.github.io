@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { useHasAccess } from '../hooks/useHasAccess';
 import { SearchIcon, PlusIcon, PlayIcon, EditIcon, TrashIcon, DuplicateIcon, ArchiveIcon, EyeIcon, EyeOffIcon, DotsVerticalIcon, LightbulbIcon, ClockIcon, RefreshIcon, LockClosedIcon, ClipboardCheckIcon, BookmarkIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
@@ -28,9 +29,11 @@ const getQuizStatus = (quiz) => {
     return { text: 'Aktiv', color: 'green', active: true };
 };
 
-const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest, onDeleteRequest, isAdmin, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked }) => {
+const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest, onDeleteRequest, profile, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked, onSetVisibilityRequest }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
+    const hasAccess = useHasAccess(quiz, profile);
+    const isAdmin = profile?.role === 'admin';
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -47,22 +50,32 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
     const questions = quiz.questions || [];
     const status = getQuizStatus(quiz);
     const isSaved = isBookmarked(quiz.id, 'quiz');
+    const isEffectivelyPublished = quiz.is_published && hasAccess;
 
     return (
         <div className="relative group transition-transform duration-200 hover:-translate-y-1">
-            <Card className={`flex flex-col group-hover:shadow-orange-200 transition-shadow duration-200 ${quiz.isArchived ? 'bg-gray-100' : ''}`}>
+            <Card className={`flex flex-col group-hover:shadow-orange-200 transition-shadow duration-200 ${quiz.isArchived || !isEffectivelyPublished ? 'bg-gray-100' : ''}`}>
                 <div className="flex-grow">
                     <div className="flex flex-col sm:flex-row justify-between items-start mb-2">
                         <h2 className="text-xl font-bold text-gray-800 flex-1 pr-2 mb-2 sm:mb-0">{quiz.title}</h2>
                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
                             <div className="flex items-center gap-2">
-                                {isAdmin && !quiz.is_published && !quiz.isArchived && (
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-1 rounded-full whitespace-nowrap">QARALAMA</span>
-                                )}
                                 {quiz.isArchived ? (
                                     <span className="text-xs font-semibold uppercase tracking-wider text-gray-600 bg-gray-200 px-2 py-1 rounded-full whitespace-nowrap">ARXİVDƏ</span>
                                 ) : (
-                                    quiz.is_published && <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-1 rounded-full whitespace-nowrap">{quiz.category || 'Kateqoriyasız'}</span>
+                                    <>
+                                        {!isEffectivelyPublished && (
+                                            <span className="text-xs font-semibold uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-1 rounded-full whitespace-nowrap">
+                                                {quiz.visibility === 'restricted' ? 'Məhdud' : 'Qaralama'}
+                                            </span>
+                                        )}
+                                        <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-1 rounded-full whitespace-nowrap">{quiz.category || 'Kateqoriyasız'}</span>
+                                    </>
+                                )}
+                                {isAdmin && (
+                                    <span className={`text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap ${quiz.visibility === 'public' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                                        {quiz.visibility === 'public' ? 'Açıq' : 'Məhdud'}
+                                    </span>
                                 )}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); toggleBookmark(quiz.id, 'quiz'); }} className="p-1 rounded-full hover:bg-orange-100 text-orange-500" title={isSaved ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}>
@@ -93,12 +106,13 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
                     </div>
                 </div>
                 <div className="flex items-stretch gap-2 mt-auto">
-                    <Button onClick={() => onStartQuiz(quiz.id)} className="flex-1" disabled={questions.length === 0 || quiz.isArchived || !status.active || !quiz.is_published}><PlayIcon /> <span className="hidden sm:inline ml-1">Başla</span></Button>
+                    <Button onClick={() => onStartQuiz(quiz.id)} className="flex-1" disabled={questions.length === 0 || quiz.isArchived || !status.active || !isEffectivelyPublished}><PlayIcon /> <span className="hidden sm:inline ml-1">Başla</span></Button>
                     {isAdmin && (
                         <div className="relative" ref={menuRef}>
                             <Button onClick={() => setMenuOpen(!menuOpen)} variant="secondary" className="h-full"><DotsVerticalIcon /></Button>
                             {menuOpen && (
-                                <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                    <button onClick={() => { onSetVisibilityRequest(quiz.id, quiz.title, 'quiz', quiz.visibility); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"><LockClosedIcon /> <span className="ml-2">Girişi tənzimlə</span></button>
                                     <button onClick={() => { onAssignRequest(quiz.id, quiz.title, 'quiz'); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"><ClipboardCheckIcon /> <span className="ml-2">Təyin et</span></button>
                                     <button onClick={() => { onToggleStatus(quiz.id, !quiz.is_published); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
                                         {quiz.is_published ? <EyeOffIcon /> : <EyeIcon />}
@@ -120,7 +134,8 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
     );
 };
 
-const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked }) => {
+const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, profile, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked, onSetVisibilityRequest }) => {
+    const isAdmin = profile?.role === 'admin';
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date_desc');
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -226,10 +241,11 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                             onEditQuiz={onEditQuiz}
                             onArchiveRequest={onArchiveRequest}
                             onDeleteRequest={onDeleteRequest}
-                            isAdmin={isAdmin}
+                            profile={profile}
                             onToggleStatus={onToggleStatus}
                             onAssignRequest={onAssignRequest}
                             toggleBookmark={toggleBookmark}
+                            onSetVisibilityRequest={onSetVisibilityRequest}
                             isBookmarked={isBookmarked}
                         />
                     ))}

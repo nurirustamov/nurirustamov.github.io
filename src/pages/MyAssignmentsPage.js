@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { PlayIcon, DocumentTextIcon, CollectionIcon, ClockIcon, CheckCircleIcon, EyeIcon, StarIcon } from '../assets/icons';
+import { PlayIcon, DocumentTextIcon, CollectionIcon, ClockIcon, CheckCircleIcon, EyeIcon, StarIcon, UserGroupIcon } from '../assets/icons';
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -74,8 +74,74 @@ const QuestCard = ({ quests }) => {
     );
 };
 
+// --- My Groups Component ---
+const MyGroupsCard = ({ groups, className = '' }) => {
+    if (!groups || groups.length === 0) {
+        return null;
+    }
 
-const MyAssignmentsPage = ({ assignments, quizzes, courses, quizResults, completedCourses, onStartQuiz, userQuests }) => {
+    return (
+        <div className={className}>
+            <Card>
+                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <UserGroupIcon /> Mənim Qruplarım
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {groups.map(group => (
+                        <Link to={`/groups/${group.id}`} key={group.id} className="block p-4 rounded-lg bg-gray-50 hover:bg-orange-50 transition-colors border flex flex-col justify-between">
+                            <div>
+                                <h3 className="font-bold text-gray-800">{group.name}</h3>
+                                <p className="text-sm text-gray-500 mt-1">{group.members?.length || 0} üzv</p>
+                            </div>
+                            <div className="flex items-center -space-x-2 mt-3">
+                                {(group.members || []).slice(0, 5).map(member => (
+                                    <div 
+                                        key={member.user_id} 
+                                        className="w-8 h-8 rounded-full bg-orange-200 flex items-center justify-center text-orange-700 font-bold text-xs border-2 border-white"
+                                        title={`${member.profiles?.first_name || ''} ${member.profiles?.last_name || ''}`}
+                                    >
+                                        {member.profiles?.first_name?.[0] || 'U'}
+                                    </div>
+                                ))}
+                                {(group.members?.length || 0) > 5 && (
+                                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-bold text-xs border-2 border-white">
+                                        +{(group.members.length) - 5}
+                                    </div>
+                                )}
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            </Card>
+        </div>
+    );
+};
+
+
+const MyAssignmentsPage = ({ assignments, quizzes, courses, quizResults, completedCourses, onStartQuiz, userQuests, studentGroups, profile }) => {
+
+    const myGroups = useMemo(() => {
+        if (!profile || !studentGroups) return [];
+
+        if (profile.role === 'admin') {
+            // Администратор видит группы, которые он создал ИЛИ в которых он состоит.
+            // Используем Set для избежания дубликатов.
+            const groupIds = new Set();
+            const adminGroups = [];
+
+            (studentGroups || []).forEach(g => {
+                const isMember = g.members.some(m => m.user_id === profile.id);
+                const isCreator = g.created_by === profile.id;
+                if ((isMember || isCreator) && !groupIds.has(g.id)) {
+                    adminGroups.push(g);
+                    groupIds.add(g.id);
+                }
+            });
+            return adminGroups;
+        }
+        // Студент видит только группы, в которых он состоит.
+        return (studentGroups || []).filter(g => g.members.some(m => m.user_id === profile.id));
+    }, [studentGroups, profile]);
 
     const enrichedAssignments = useMemo(() => {
         const completedQuizIds = new Set((quizResults || []).map(r => r.quizId));
@@ -152,6 +218,7 @@ const MyAssignmentsPage = ({ assignments, quizzes, courses, quizResults, complet
         <div className="animate-fade-in space-y-8">
             <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Tapşırıqlarım</h1>
+                <MyGroupsCard groups={myGroups} className="mb-8" />
                 <QuestCard quests={userQuests} />
             </div>
             

@@ -9,7 +9,7 @@ const AuthPage = ({ showToast }) => {
     const [password, setPassword] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [view, setView] = useState('login'); // 'login', 'register', 'forgot_password'
+    const [view, setView] = useState('login'); // 'login', 'register', 'forgot_password', 'check_email'
 
     const handleAuth = async (event) => {
         event.preventDefault();
@@ -35,8 +35,8 @@ const AuthPage = ({ showToast }) => {
             if (error) {
                 showToast(error.error_description || error.message);
             } else {
-                showToast('Qeydiyyat uğurludur! Zəhmət olmasa, emailinizi təsdiqləyin.');
-                setView('login');
+                showToast('Qeydiyyat demək olar ki, tamamlandı!');
+                setView('check_email');
             }
         }
         setLoading(false);
@@ -58,6 +58,20 @@ const AuthPage = ({ showToast }) => {
     };
 
     const renderAuthForm = () => {
+        if (view === 'check_email') {
+            return (
+                <div className="text-center space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Emailinizi yoxlayın</h2>
+                    <p className="text-gray-600">
+                        Qeydiyyatı tamamlamaq üçün sizə göndərilən təsdiq linkinə daxil olun.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                        Linkə daxil olduqdan sonra avtomatik olaraq sistemə daxil olacaqsınız.
+                    </p>
+                </div>
+            );
+        }
+
         if (view === 'forgot_password') {
             return (
                 <form className="space-y-6" onSubmit={handlePasswordReset}>
@@ -104,6 +118,7 @@ const AuthPage = ({ showToast }) => {
     const getTitle = () => {
         if (view === 'login') return 'Daxil Ol';
         if (view === 'register') return 'Qeydiyyat';
+        if (view === 'check_email') return 'Bir Addım Qaldı!';
         return 'Parolu Sıfırla';
     };
 
@@ -118,11 +133,13 @@ const AuthPage = ({ showToast }) => {
                     {view === 'login' && <button onClick={() => setView('forgot_password')} className="font-medium text-orange-600 hover:underline">Parolu unutmusunuz?</button>}
                     {view === 'forgot_password' && <button onClick={() => setView('login')} className="font-medium text-orange-600 hover:underline">Giriş səhifəsinə qayıt</button>}
                 </div>
-                <div className="text-center">
-                    <button onClick={() => setView(view === 'login' ? 'register' : 'login')} className="text-sm text-orange-600 hover:underline">
-                        {view === 'login' ? 'Hesabınız yoxdur? Qeydiyyatdan keçin' : 'Artıq hesabınız var? Daxil olun'}
-                    </button>
-                </div>
+                {view !== 'check_email' && (
+                    <div className="text-center">
+                        <button onClick={() => setView(view === 'login' ? 'register' : 'login')} className="text-sm text-orange-600 hover:underline">
+                            {view === 'login' ? 'Hesabınız yoxdur? Qeydiyyatdan keçin' : 'Artıq hesabınız var? Daxil olun'}
+                        </button>
+                    </div>
+                )}
             </Card>
         </div>
     );

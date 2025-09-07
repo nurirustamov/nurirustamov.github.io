@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import Card from '../components/ui/Card';
-import { CollectionIcon, SearchIcon, BookmarkIcon } from '../assets/icons';
+import { CollectionIcon, SearchIcon, BookmarkIcon, LockClosedIcon } from '../assets/icons';
+import { useHasAccess } from '../hooks/useHasAccess';
 
-const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, onNavigate, toggleBookmark, isBookmarked }) => {
+const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, onNavigate, toggleBookmark, isBookmarked, profile }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const coursesWithProgress = useMemo(() => {
@@ -42,6 +43,46 @@ const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, 
         });
     }, [courses, articleProgress, quizResults, session, searchTerm]);
 
+    const CourseCard = ({ course }) => {
+        const hasAccess = useHasAccess(course, profile);
+        const isSaved = isBookmarked(course.id, 'course');
+        const isClickable = hasAccess;
+
+        return (
+            <div
+                key={course.id}
+                onClick={() => isClickable && onNavigate(course, 'course')}
+                className={`relative group transition-transform duration-200 ${isClickable ? 'cursor-pointer hover:-translate-y-1' : 'cursor-not-allowed'}`}
+            >
+                <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                    {!hasAccess && (
+                        <div className="text-gray-400" title="Məhdud giriş">
+                            <LockClosedIcon className="w-5 h-5" />
+                        </div>
+                    )}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); toggleBookmark(course.id, 'course'); }}
+                        className="p-1 rounded-full hover:bg-orange-100 text-orange-500"
+                        title={isSaved ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}
+                    >
+                        <BookmarkIcon filled={isSaved} />
+                    </button>
+                </div>
+                <Card className={`group-hover:shadow-orange-200 transition-shadow duration-200 h-full flex flex-col ${!hasAccess ? 'bg-gray-100' : ''}`}>
+                    <div className="flex-grow">
+                        <h2 className="text-xl font-bold text-gray-800 mb-2 pr-12">{course.title}</h2>
+                        <p className="text-sm text-gray-600">{course.description}</p>
+                    </div>
+                    {session && hasAccess && (
+                        <div className="mt-4">
+                            <div className="flex justify-between mb-1"><span className="text-xs font-medium text-gray-700">Proqres</span><span className="text-xs font-medium text-green-700">{course.progress}%</span></div>
+                            <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-green-500 h-2 rounded-full" style={{ width: `${course.progress}%` }}></div></div>
+                        </div>)}
+                    <div className="text-sm text-gray-500 mt-4 pt-4 border-t border-gray-200 flex justify-between items-center"><span>{course.course_items?.length || 0} dərs</span><span className="flex items-center gap-1"><CollectionIcon className="w-4 h-4" /> Kurs</span></div>
+                </Card>
+            </div>)
+    }
+
     return (
         <div className="animate-fade-in">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Kurslar</h1>
@@ -61,41 +102,7 @@ const PublicCourseListPage = ({ courses, articleProgress, quizResults, session, 
             </div>
             {coursesWithProgress.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {coursesWithProgress.map(course => (
-                        <div key={course.id} onClick={() => onNavigate(course, 'course')} className="cursor-pointer relative group transition-transform duration-200 hover:-translate-y-1">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleBookmark(course.id, 'course');
-                                }}
-                                className="absolute top-3 right-3 p-1 rounded-full hover:bg-orange-100 text-orange-500 z-10"
-                                title={isBookmarked(course.id, 'course') ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}
-                            >
-                                <BookmarkIcon filled={isBookmarked(course.id, 'course')} />
-                            </button>
-                            <Card className="group-hover:shadow-orange-200 transition-shadow duration-200 h-full flex flex-col">
-                                <div className="flex-grow">
-                                    <h2 className="text-xl font-bold text-gray-800 mb-2">{course.title}</h2>
-                                    <p className="text-sm text-gray-600">{course.description}</p>
-                                </div>
-                                {session && (
-                                    <div className="mt-4">
-                                        <div className="flex justify-between mb-1">
-                                            <span className="text-xs font-medium text-gray-700">Proqres</span>
-                                            <span className="text-xs font-medium text-green-700">{course.progress}%</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${course.progress}%` }}></div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="text-sm text-gray-500 mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                                    <span>{course.course_items?.length || 0} dərs</span>
-                                    <span className="flex items-center gap-1"><CollectionIcon className="w-4 h-4" /> Kurs</span>
-                                </div>
-                            </Card>
-                        </div>
-                    ))}
+                    {coursesWithProgress.map(course => <CourseCard key={course.id} course={course} />)}
                 </div>
             ) : (
                 <Card className="text-center py-12">

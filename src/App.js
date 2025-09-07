@@ -6,6 +6,7 @@ import { supabase } from './supabaseClient';
 
 // --- Hooks ---
 import { useBookmarks } from './hooks/useBookmarks';
+import { useHasAccess } from './hooks/useHasAccess';
 
 // --- UI Компоненты ---
 import Modal from './components/ui/Modal';
@@ -13,8 +14,8 @@ import Toast from './components/ui/Toast';
 import WavingCat from './components/WavingCat';
 import Button from './components/ui/Button';
 import RecommendationCard from './components/ui/RecommendationCard';
-import SmartRecommendationCard from './components/ui/SmartRecommendationCard';
 import AssignmentModal from './components/ui/AssignmentModal';
+import VisibilityModal from './components/ui/VisibilityModal'; // Import the new modal
 import GlobalSearch from './components/ui/GlobalSearch';
 import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon, BookmarkIcon } from './assets/icons';
 
@@ -59,6 +60,7 @@ const StudentGroupEditorPage = lazy(() => import('./pages/StudentGroupEditorPage
 const MyAssignmentsPage = lazy(() => import('./pages/MyAssignmentsPage'));
 const QuestManagementPage = lazy(() => import('./pages/QuestManagementPage'));
 const GroupAnalysisPage = lazy(() => import('./pages/GroupAnalysisPage'));
+const StudentGroupViewPage = lazy(() => import('./pages/StudentGroupViewPage'));
 const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
 
 const SuspenseFallback = () => (
@@ -302,7 +304,7 @@ const AddFromBankModal = ({ isOpen, onClose, onAdd, showToast, questionBank }) =
 
 // --- Компоненты-обертки для страниц (вынесены из App для стабильности) ---
 
-const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, isAdmin, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked }) => {
+const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, profile, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked, onSetVisibilityRequest }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const queryParams = new URLSearchParams(location.search);
@@ -323,10 +325,11 @@ const QuizListPageWrapper = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, o
         onStartSmartPractice={onStartSmartPractice}
         showArchived={showArchived}
         setShowArchived={handleSetShowArchived}
-        isAdmin={isAdmin}
+        profile={profile}
         onToggleStatus={onToggleStatus}
         onAssignRequest={onAssignRequest}
         toggleBookmark={toggleBookmark}
+        onSetVisibilityRequest={onSetVisibilityRequest}
         isBookmarked={isBookmarked}
     />;
 };
@@ -389,13 +392,14 @@ const ArticleEditorPageWrapper = ({ onSave, showToast, ...props }) => {
     return <ArticleEditorPage {...props} article={article} onSave={onSave} showToast={showToast} />;
 };
 
-const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment, setPasscodeContent, setIsContentPasscodeModalOpen }) => {
+const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment, setPasscodeContent, setIsContentPasscodeModalOpen, showToast }) => {
     const { articleId } = useParams();
     const navigate = useNavigate();
     const [isAccessGranted, setIsAccessGranted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     const article = useMemo(() => articles.find(a => a.id === Number(articleId)), [articles, articleId]);
+    const hasAccess = useHasAccess(article, profile);
 
     useEffect(() => {
         if (article) {
@@ -411,9 +415,14 @@ const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, 
             } else {
                 setIsAccessGranted(true);
             }
+
+            if (!hasAccess) {
+                showToast('Bu materiala giriş üçün icazəniz yoxdur.');
+                navigate('/articles');
+            }
         }
         setIsLoading(false);
-    }, [article, navigate, setPasscodeContent, setIsContentPasscodeModalOpen]);
+    }, [article, navigate, setPasscodeContent, setIsContentPasscodeModalOpen, hasAccess, showToast]);
 
     if (isLoading) {
         return <div className="text-center py-12">Yüklənir...</div>;
@@ -421,7 +430,7 @@ const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, 
     if (!article) {
         return <div className="text-center py-12">Məqalə tapılmadı.</div>;
     }
-    if (!isAccessGranted) {
+    if (!isAccessGranted || !hasAccess) {
         return <div className="text-center py-12">Giriş yoxlanılır...</div>;
     }
     return <ArticleViewPage articles={articles} quizzes={quizzes} onStartQuiz={onStartQuiz} onMarkAsRead={onMarkAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
@@ -451,13 +460,14 @@ const LearningPathEditorPageWrapper = ({ editingLearningPathDraft, setEditingLea
     />;
 };
 
-const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResults, session, profile, setPasscodeContent, setIsContentPasscodeModalOpen }) => {
+const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResults, session, profile, setPasscodeContent, setIsContentPasscodeModalOpen, showToast }) => {
     const { courseId } = useParams();
     const navigate = useNavigate();
     const [isAccessGranted, setIsAccessGranted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     const course = useMemo(() => courses.find(c => c.id === Number(courseId)), [courses, courseId]);
+    const hasAccess = useHasAccess(course, profile);
 
     useEffect(() => {
         if (course) {
@@ -479,9 +489,14 @@ const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResu
             } else {
                 setIsAccessGranted(true);
             }
+
+            if (!hasAccess) {
+                showToast('Bu kursa giriş üçün icazəniz yoxdur.');
+                navigate('/courses');
+            }
         }
         setIsLoading(false);
-    }, [course, navigate, setPasscodeContent, setIsContentPasscodeModalOpen, profile]);
+    }, [course, navigate, setPasscodeContent, setIsContentPasscodeModalOpen, profile, hasAccess, showToast]);
 
     if (isLoading) {
         return <div className="text-center py-12">Yüklənir...</div>;
@@ -489,20 +504,59 @@ const CourseViewPageWrapper = ({ courses, onStartQuiz, articleProgress, quizResu
     if (!course) {
         return <div className="text-center py-12">Kurs tapılmadı.</div>;
     }
-    if (!isAccessGranted) {
+    if (!isAccessGranted || !hasAccess) {
         return <div className="text-center py-12">Giriş yoxlanılır...</div>;
     }
     return <CourseViewPage courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />;
 };
 
-const LearningPathViewPageWrapper = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, session }) => {
-    return <LearningPathViewPage learningPaths={learningPaths} courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} />;
+const LearningPathViewPageWrapper = ({ learningPaths, courses, onStartQuiz, articleProgress, quizResults, session, profile, showToast }) => {
+    const { pathId } = useParams();
+    const navigate = useNavigate();
+    const path = useMemo(() => learningPaths.find(p => p.id === Number(pathId)), [learningPaths, pathId]);
+    const hasAccess = useHasAccess(path, profile);
+
+    useEffect(() => {
+        if (learningPaths.length > 0 && path && !hasAccess) {
+            showToast('Bu tədris yoluna giriş üçün icazəniz yoxdur.');
+            navigate('/paths');
+        }
+    }, [path, hasAccess, navigate, showToast, learningPaths]);
+
+    if (learningPaths.length > 0 && path && !hasAccess) {
+        return <div className="text-center py-12">Giriş yoxlanılır...</div>;
+    }
+    return <LearningPathViewPage learningPaths={learningPaths} courses={courses} onStartQuiz={onStartQuiz} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} />;
 };
 const BookmarksPageWrapper = ({ bookmarks, quizzes, articles, courses, onNavigate, onStartQuiz, toggleBookmark, isBookmarked }) => (
     <BookmarksPage bookmarks={bookmarks} quizzes={quizzes} articles={articles} courses={courses} onNavigate={onNavigate} onStartQuiz={onStartQuiz} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />
 );
 
-const GlobalSearchPageWrapper = ({ quizzes, courses, articles, learningPaths, onStartQuiz }) => {
+const StudentGroupViewPageWrapper = ({ studentGroups, profile, fetchComments, postComment, deleteComment, showToast }) => {
+    const { groupId } = useParams();
+    const navigate = useNavigate();
+
+    const group = useMemo(() => studentGroups.find(g => g.id === Number(groupId)), [studentGroups, groupId]);
+    const isMember = useMemo(() => {
+        if (!group || !profile) return false;
+        return group.members.some(m => m.user_id === profile.id) || profile.role === 'admin';
+    }, [group, profile]);
+
+    useEffect(() => {
+        if (studentGroups.length > 0 && (!group || !isMember)) {
+            showToast('Bu qrupa baxmaq üçün üzv olmalısınız.');
+            navigate('/my-assignments');
+        }
+    }, [group, isMember, studentGroups, navigate, showToast]);
+
+    if (!group || !isMember) {
+        return <div className="text-center py-12">Yüklənir və ya giriş yoxlanılır...</div>;
+    }
+
+    return <StudentGroupViewPage group={group} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
+};
+
+const GlobalSearchPageWrapper = ({ quizzes, courses, articles, learningPaths, onStartQuiz, profile }) => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
 
@@ -527,7 +581,8 @@ const GlobalSearchPageWrapper = ({ quizzes, courses, articles, learningPaths, on
         };
     }, [query, quizzes, courses, articles, learningPaths]);
 
-    return <GlobalSearchPage searchResults={searchResults} onStartQuiz={onStartQuiz} />;
+    return <GlobalSearchPage searchResults={searchResults} onStartQuiz={onStartQuiz} profile={profile} />;
+
 };
 const QuizPageWrapper = ({
                              pageType,
@@ -563,6 +618,8 @@ const QuizPageWrapper = ({
         return quizzes.find(q => q.id === Number(id));
     }, [id, pageType, quizzes, editingQuizDraft, customPracticeQuiz]);
 
+    const hasAccess = useHasAccess(quiz, profile);
+
     useEffect(() => {
         if (pageType !== 'take' && pageType !== 'practice') {
             setIsAccessGranted(true);
@@ -571,6 +628,12 @@ const QuizPageWrapper = ({
         }
 
         if (quiz) {
+            if (!hasAccess) {
+                showToast('Bu testə giriş üçün icazəniz yoxdur.');
+                navigate('/quizzes');
+                return;
+            }
+
             const now = new Date();
 
             // --- Time checks for non-admins ---
@@ -603,15 +666,15 @@ const QuizPageWrapper = ({
             }
         }
         setIsLoading(false);
-    }, [quiz, pageType, navigate, setPasscodeQuiz, setIsPasscodeModalOpen, showToast, profile]);
+    }, [quiz, pageType, navigate, setPasscodeQuiz, setIsPasscodeModalOpen, showToast, profile, hasAccess]);
 
     if (isLoading) {
         return <div className="text-center py-12">Yüklənir...</div>;
     }
     if (!quiz) {
-        return <div className="text-center text-red-500">Test tapılmadı.</div>;
+        return <div className="text-center py-12">Test məlumatları hazırlanır...</div>;
     }
-    if (!isAccessGranted) {
+    if (pageType !== 'edit' && (!isAccessGranted || !hasAccess)) {
         return <div className="text-center py-12">Giriş yoxlanılır...</div>;
     }
 
@@ -659,10 +722,12 @@ export default function App() {
     const [allUsers, setAllUsers] = useState([]); // For admin panel
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [nextCourseRecommendation, setNextCourseRecommendation] = useState(null);
-    const [smartRecommendation, setSmartRecommendation] = useState(null);
     const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
     const [assignmentData, setAssignmentData] = useState({ itemId: null, itemTitle: '', itemType: '' });
     const [allQuests, setAllQuests] = useState([]);
+    const [isVisibilityModalOpen, setIsVisibilityModalOpen] = useState(false); // State for the new modal
+    const [visibilityData, setVisibilityData] = useState({ itemId: null, itemTitle: '', itemType: '', currentVisibility: 'public' });
+
     const [userQuests, setUserQuests] = useState([]);
 
     const [lastResult, setLastResult] = useState(null);
@@ -727,73 +792,6 @@ export default function App() {
 
         return { pendingReviewCount, newUsersTodayCount, totalUsersCount, topStudents };
     }, [quizResults, allUsers, profile]);
-
-    const generateSmartRecommendation = useCallback(async () => {
-        if (!profile || !quizResults.length) return;
-
-        const userResults = quizResults.filter(r => r.user_id === profile.id && r.status === 'completed');
-        if (userResults.length === 0) return;
-
-        const topicMistakes = new Map();
-
-        userResults.forEach(result => {
-            const quiz = quizzes.find(q => q.id === result.quizId);
-            if (!quiz || !quiz.questions) return;
-
-            result.questionOrder.forEach(q_ordered => {
-                const originalQuestion = quiz.questions.find(q => q.id === q_ordered.id);
-                if (originalQuestion && !isAnswerCorrect(originalQuestion, result.userAnswers[originalQuestion.id])) {
-                    if (quiz.category) {
-                        topicMistakes.set(quiz.category, (topicMistakes.get(quiz.category) || 0) + 1);
-                    }
-                    if (originalQuestion.tags) {
-                        originalQuestion.tags.forEach(tag => {
-                            topicMistakes.set(tag, (topicMistakes.get(tag) || 0) + 1);
-                        });
-                    }
-                }
-            });
-        });
-
-        if (topicMistakes.size === 0) {
-            setSmartRecommendation(null); // Clear old recommendations if no new mistakes
-            return;
-        }
-
-        const worstTopic = [...topicMistakes.entries()].sort((a, b) => b[1] - a[1])[0][0];
-
-        const completedArticleIds = new Set((articleProgress || []).map(p => p.article_id));
-        const completedCourseIds = new Set((completedCourses || []).map(c => c.course_id));
-
-        const recommendedArticle = articles.find(article =>
-            !completedArticleIds.has(article.id) &&
-            article.is_published &&
-            (article.category === worstTopic || (article.article_quizzes || []).some(aq => quizzes.find(q => q.id === aq.quiz_id)?.category === worstTopic))
-        );
-
-        if (recommendedArticle) {
-            setSmartRecommendation({ reason: worstTopic, item: recommendedArticle });
-            return;
-        }
-
-        const recommendedCourse = courses.find(course =>
-            !completedCourseIds.has(course.id) &&
-            course.is_published &&
-            (course.course_items || []).some(item => {
-                const quiz = quizzes.find(q => q.id === item.quiz_id);
-                const article = articles.find(a => a.id === item.article_id);
-                return (quiz && quiz.category === worstTopic) || (article && article.category === worstTopic);
-            })
-        );
-
-        if (recommendedCourse) {
-            setSmartRecommendation({ reason: worstTopic, item: recommendedCourse });
-            return;
-        }
-
-        setSmartRecommendation(null);
-
-    }, [profile, quizResults, quizzes, articles, courses, articleProgress, completedCourses]);
 
     const handleAddExperience = useCallback(async (pointsToAdd) => {
         if (!profile || pointsToAdd <= 0) return;
@@ -1066,6 +1064,18 @@ export default function App() {
                     }
                     // --- End of Gamification Logic ---
 
+                    // NEW: Fetch user's group memberships and add to profile
+                    const { data: memberships, error: membershipError } = await supabase
+                        .from('group_memberships')
+                        .select('group_id')
+                        .eq('user_id', session.user.id);
+
+                    if (membershipError) {
+                        console.error("Error fetching group memberships:", membershipError);
+                    } else {
+                        profileData.groups = memberships.map(m => m.group_id);
+                    }
+
                     setProfile(profileData);
                 }
                 const { data: usersData } = await supabase.from('profiles').select('*');
@@ -1304,6 +1314,61 @@ export default function App() {
                 if (rpcError) {
                     console.error('Error sending notification for assignment:', assignment.id, rpcError);
                 }
+            }
+        }
+    };
+
+    const handleSetVisibilityRequest = (itemId, itemTitle, itemType, currentVisibility) => {
+        if (!checkAdmin()) return;
+        setVisibilityData({ itemId, itemTitle, itemType, currentVisibility });
+        setIsVisibilityModalOpen(true);
+    };
+
+    const handleSetVisibility = async ({ visibility, accessList }) => {
+        if (!checkAdmin()) return;
+
+        let userIds = null;
+        let groupIds = null;
+
+        if (visibility === 'restricted' && accessList) {
+            if (accessList.type === 'user') {
+                userIds = accessList.ids;
+            } else if (accessList.type === 'group') {
+                // Убедимся, что ID групп - это числа
+                groupIds = accessList.ids.map(id => parseInt(id, 10));
+            }
+        }
+
+        const { error } = await supabase.rpc('update_content_permissions', {
+            p_item_id: visibilityData.itemId,
+            p_item_type: visibilityData.itemType,
+            p_visibility: visibility,
+            p_user_ids: userIds,
+            p_group_ids: groupIds
+        });
+
+        if (error) {
+            showToast(`Giriş tənzimləmələri saxlanılarkən xəta: ${error.message}`);
+        } else {
+            showToast('Giriş tənzimləmələri uğurla yadda saxlandı!');
+            setIsVisibilityModalOpen(false);
+
+            // Обновляем локальное состояние для немедленного отображения изменений
+            const stateSetterMap = {
+                course: setCourses,
+                article: setArticles,
+                quiz: setQuizzes,
+                flashcard_deck: setFlashcardDecks,
+                learning_path: setLearningPaths
+            };
+
+            const setState = stateSetterMap[visibilityData.itemType];
+            if (setState) {
+                setState(prev => prev.map(item =>
+                    item.id === visibilityData.itemId
+                        ? { ...item, visibility, visible_to_users: userIds, visible_to_groups: groupIds }
+                        : item
+                ));
             }
         }
     };
@@ -1761,7 +1826,6 @@ export default function App() {
             setLastResult(newResult);
             navigate(`/quiz/${quiz.id}/result`);
             await handleQuestProgress('COMPLETE_QUIZZES');
-            await generateSmartRecommendation();
 
             // Check for course completion
             courses.forEach(course => {
@@ -2393,6 +2457,16 @@ export default function App() {
                 console.error('Error calling RPC function:', rpcError);
                 showToast('Bildiriş göndərilərkən xəta baş verdi.');
             }
+        } else if (targetType === 'group' && !parentCommentId) {
+            const { error: rpcError } = await supabase.rpc('create_group_comment_notification', {
+                p_group_id: targetId,
+                p_author_id: session.user.id,
+                p_comment_content: content,
+                p_target_url: targetUrl || '#'
+            });
+            if (rpcError) {
+                console.error('Error calling group comment notification RPC:', rpcError);
+            }
         }
 
         return newComment;
@@ -2581,36 +2655,31 @@ export default function App() {
                                         }}
                                         onClose={() => setNextCourseRecommendation(null)}
                                     />
-                                    <SmartRecommendationCard
-                                        recommendation={smartRecommendation}
-                                        onStart={(itemId, itemType) => {
-                                            navigate(`/${itemType}s/${itemId}`);
-                                            setSmartRecommendation(null);
-                                        }}
-                                        onClose={() => setSmartRecommendation(null)}
-                                    />
                                     <Routes>
                                         <Route path="/" element={<DashboardPage
                                             profile={profile}
                                             activeAssignmentsCount={activeAssignmentsCount}
                                             dueFlashcardsCount={dueFlashcardsCount}
+                                            quizResults={quizResults}
+                                            quizzes={quizzes}
                                         />} />
-                                        <Route path="/search" element={<GlobalSearchPageWrapper {...{ quizzes, courses, articles, learningPaths, onStartQuiz: handleStartQuizRequest }} />} />
-                                        <Route path="/quizzes" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} isAdmin={profile?.role === 'admin'} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
-                                        <Route path="/my-assignments" element={<MyAssignmentsPage assignments={userAssignments} quizzes={quizzes} courses={courses} onStartQuiz={handleStartQuizRequest} quizResults={quizResults} completedCourses={completedCourses} userQuests={activeUserQuests} />} />
+                                        <Route path="/search" element={<GlobalSearchPageWrapper {...{ quizzes, courses, articles, learningPaths, onStartQuiz: handleStartQuizRequest, profile }} />} />
+                                        <Route path="/quizzes" element={<QuizListPageWrapper quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onAddNewQuiz={handleAddNewQuizRequest} onEditQuiz={handleEditQuizRequest} onDeleteRequest={(id) => handleDeleteRequest(id, 'quiz')} onCloneQuiz={handleCloneQuizRequest} onArchiveRequest={handleArchiveQuizRequest} onStartSmartPractice={handleStartSmartPractice} profile={profile} onToggleStatus={handleToggleQuizStatus} onAssignRequest={handleAssignRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
+                                        <Route path="/my-assignments" element={<MyAssignmentsPage assignments={userAssignments} quizzes={quizzes} courses={courses} onStartQuiz={handleStartQuizRequest} quizResults={quizResults} completedCourses={completedCourses} userQuests={activeUserQuests} studentGroups={studentGroups} profile={profile} />} />
                                         <Route path="/bookmarks" element={<BookmarksPageWrapper bookmarks={bookmarks} quizzes={quizzes} articles={articles} courses={courses} onNavigate={handleContentNavigationRequest} onStartQuiz={handleStartQuizRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
                                         <Route path="/student/:userId" element={<StudentReportPageWrapper results={quizResults} onReviewResult={handleReviewRequest} profile={profile} showToast={showToast} />} />
                                         <Route path="/review/:resultId" element={<PastQuizReviewPageWrapper quizResults={quizResults} quizzes={quizzes} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />} />
                                         <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
                                         <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} allUsers={allUsers} />} />
-                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
-                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} />} />
-                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />} />
-                                        <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} />} />
-                                        <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} />} />
-                                        <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} />} />
-                                        <Route path="/decks" element={<PublicFlashcardDeckListPage decks={flashcardDecks} userReviews={userFlashcardReviews} />} />
-                                        <Route path="/decks/:deckId/study" element={<FlashcardStudyPage decks={flashcardDecks} userReviews={userFlashcardReviews} onUpdateReview={handleUpdateFlashcardReview} />} />
+                                        <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} profile={profile} />} />
+                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} showToast={showToast} />} />
+                                        <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} profile={profile} />} />
+                                        <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} showToast={showToast} />} />
+                                        <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} profile={profile} />} />
+                                        <Route path="/paths/:pathId" element={<LearningPathViewPageWrapper learningPaths={learningPaths} courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} showToast={showToast} />} />
+                                        <Route path="/decks" element={<PublicFlashcardDeckListPage decks={flashcardDecks} userReviews={userFlashcardReviews} profile={profile} />} />
+                                        <Route path="/decks/:deckId/study" element={<FlashcardStudyPage decks={flashcardDecks} userReviews={userFlashcardReviews} onUpdateReview={handleUpdateFlashcardReview} profile={profile} showToast={showToast} />} />
+                                        <Route path="/groups/:groupId" element={<StudentGroupViewPageWrapper studentGroups={studentGroups} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} showToast={showToast} />} />
 
                                         {/* === ADMIN ROUTES === */}
                                         <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} studentGroups={studentGroups} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} allUsers={allUsers} />} /></Routes></AdminRoute>} />
@@ -2625,16 +2694,16 @@ export default function App() {
                                             <Route path="group-analysis" element={<GroupAnalysisPage studentGroups={studentGroups} allUsers={allUsers} results={quizResults} courses={courses} quizzes={quizzes} userCourseCompletions={completedCourses} />} />
                                             <Route path="groups/new" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
                                             <Route path="groups/edit/:groupId" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
-                                            <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} />} />
+                                            <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
                                             <Route path="articles/new" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
                                             <Route path="articles/edit/:articleId" element={<ArticleEditorPageWrapper articles={articles} quizzes={quizzes} onSave={handleSaveArticle} showToast={showToast} existingArticleCategories={existingArticleCategories} editingArticleDraft={editingArticleDraft} />} />
-                                            <Route path="courses" element={<CourseListPage courses={courses} onEdit={handleEditCourse} onDelete={(id) => handleDeleteRequest(id, 'course')} onAddNew={handleNewCourse} onToggleStatus={handleToggleCourseStatus} onAssignRequest={handleAssignRequest} />} />
+                                            <Route path="courses" element={<CourseListPage courses={courses} onEdit={handleEditCourse} onDelete={(id) => handleDeleteRequest(id, 'course')} onAddNew={handleNewCourse} onToggleStatus={handleToggleCourseStatus} onAssignRequest={handleAssignRequest} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
                                             <Route path="courses/new" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
                                             <Route path="courses/edit/:courseId" element={<CourseEditorPageWrapper editingCourseDraft={editingCourseDraft} setEditingCourseDraft={setEditingCourseDraft} articles={articles} quizzes={quizzes} onSave={handleSaveCourse} showToast={showToast} />} />
-                                            <Route path="paths" element={<LearningPathListPage paths={learningPaths} onEdit={handleEditLearningPath} onDelete={(id) => handleDeleteRequest(id, 'path')} onAddNew={handleNewLearningPath} onToggleStatus={handleToggleLearningPathStatus} />} />
+                                            <Route path="paths" element={<LearningPathListPage paths={learningPaths} onEdit={handleEditLearningPath} onDelete={(id) => handleDeleteRequest(id, 'path')} onAddNew={handleNewLearningPath} onToggleStatus={handleToggleLearningPathStatus} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
                                             <Route path="paths/new" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
                                             <Route path="paths/edit/:pathId" element={<LearningPathEditorPageWrapper editingLearningPathDraft={editingLearningPathDraft} setEditingLearningPathDraft={setEditingLearningPathDraft} courses={courses} onSave={handleSaveLearningPath} showToast={showToast} />} />
-                                            <Route path="decks" element={<FlashcardDeckListPage decks={flashcardDecks} onEdit={handleEditFlashcardDeck} onDelete={(id) => handleDeleteRequest(id, 'deck')} onAddNew={handleNewFlashcardDeck} onToggleStatus={handleToggleFlashcardDeckStatus} />} />
+                                            <Route path="decks" element={<FlashcardDeckListPage decks={flashcardDecks} onEdit={handleEditFlashcardDeck} onDelete={(id) => handleDeleteRequest(id, 'deck')} onAddNew={handleNewFlashcardDeck} onToggleStatus={handleToggleFlashcardDeckStatus} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
                                             <Route path="decks/new" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
                                             <Route path="decks/edit/:deckId" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
                                         </Route>
@@ -2660,6 +2729,7 @@ export default function App() {
             <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportQuestions} showToast={showToast} />
             <AddFromBankModal isOpen={isAddFromBankModalOpen} onClose={() => setIsAddFromBankModalOpen(false)} onAdd={handleAddQuestionsFromBank} showToast={showToast} questionBank={questionBank} />
             <AssignmentModal isOpen={isAssignmentModalOpen} onClose={() => setIsAssignmentModalOpen(false)} onAssign={handleCreateAssignment} allUsers={allUsers} studentGroups={studentGroups} itemTitle={assignmentData.itemTitle} />
+            <VisibilityModal isOpen={isVisibilityModalOpen} onClose={() => setIsVisibilityModalOpen(false)} onSetVisibility={handleSetVisibility} allUsers={allUsers} studentGroups={studentGroups} itemTitle={visibilityData.itemTitle} currentVisibility={visibilityData.currentVisibility} />
             <WavingCat />
         </>
     );
