@@ -18,7 +18,7 @@ import AssignmentModal from './components/ui/AssignmentModal';
 import VisibilityModal from './components/ui/VisibilityModal'; // Import the new modal
 import GlobalSearch from './components/ui/GlobalSearch';
 import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon, BookmarkIcon } from './assets/icons';
-
+ 
 // --- Lazy Loaded Pages ---
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -62,6 +62,7 @@ const QuestManagementPage = lazy(() => import('./pages/QuestManagementPage'));
 const GroupAnalysisPage = lazy(() => import('./pages/GroupAnalysisPage'));
 const StudentGroupViewPage = lazy(() => import('./pages/StudentGroupViewPage'));
 const BookmarksPage = lazy(() => import('./pages/BookmarksPage'));
+const PermissionsPage = lazy(() => import('./pages/PermissionsPage'));
 
 const SuspenseFallback = () => (
     <div className="w-full h-screen flex items-center justify-center bg-orange-50">
@@ -530,6 +531,17 @@ const LearningPathViewPageWrapper = ({ learningPaths, courses, onStartQuiz, arti
 };
 const BookmarksPageWrapper = ({ bookmarks, quizzes, articles, courses, onNavigate, onStartQuiz, toggleBookmark, isBookmarked }) => (
     <BookmarksPage bookmarks={bookmarks} quizzes={quizzes} articles={articles} courses={courses} onNavigate={onNavigate} onStartQuiz={onStartQuiz} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} />
+);
+
+const PermissionsPageWrapper = ({ quizzes, articles, courses, learningPaths, flashcardDecks, onSetVisibilityRequest }) => (
+    <PermissionsPage
+        quizzes={quizzes}
+        articles={articles}
+        courses={courses}
+        learningPaths={learningPaths}
+        flashcardDecks={flashcardDecks}
+        onSetVisibilityRequest={onSetVisibilityRequest}
+    />
 );
 
 const StudentGroupViewPageWrapper = ({ studentGroups, profile, fetchComments, postComment, deleteComment, showToast }) => {
@@ -2692,6 +2704,7 @@ export default function App() {
                                             <Route path="quests" element={<QuestManagementPage quests={allQuests} onSave={handleSaveQuest} onDelete={(id) => handleDeleteRequest(id, 'quest')} showToast={showToast} />} />
                                             <Route path="groups" element={<StudentGroupListPage groups={studentGroups} onAddNew={handleNewStudentGroup} onEdit={handleEditStudentGroup} onDelete={(id) => handleDeleteRequest(id, 'group')} />} />
                                             <Route path="group-analysis" element={<GroupAnalysisPage studentGroups={studentGroups} allUsers={allUsers} results={quizResults} courses={courses} quizzes={quizzes} userCourseCompletions={completedCourses} />} />
+                                            <Route path="permissions" element={<PermissionsPageWrapper quizzes={quizzes} articles={articles} courses={courses} learningPaths={learningPaths} flashcardDecks={flashcardDecks} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
                                             <Route path="groups/new" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
                                             <Route path="groups/edit/:groupId" element={<StudentGroupEditorPage group={editingStudentGroupDraft} onDraftChange={setEditingStudentGroupDraft} allUsers={allUsers} onSave={handleSaveStudentGroup} showToast={showToast} />} />
                                             <Route path="articles" element={<ArticleListPage articles={articles} onEdit={handleEditArticle} onDelete={(id) => handleDeleteRequest(id, 'article')} onAddNew={handleNewArticle} onToggleStatus={handleToggleArticleStatus} onSetVisibilityRequest={handleSetVisibilityRequest} />} />
