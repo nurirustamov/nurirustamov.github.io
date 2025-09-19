@@ -84,11 +84,7 @@ const ArticleViewPage = ({ articles, quizzes, onStartQuiz, onMarkAsRead, article
         return <Card><p className="text-center">Məqalə tapılmadı.</p></Card>;
     }
 
-    // --- DIAGNOSTIC LOGS ---
-    console.log("HTML до очистки:", article.content);
     const sanitizedContent = DOMPurify.sanitize(article.content);
-    console.log("HTML после очистки:", sanitizedContent);
-    // --- END DIAGNOSTIC LOGS ---
 
     return (
         <>
