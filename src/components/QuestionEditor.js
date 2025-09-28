@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Button from './ui/Button';
+import Modal from './ui/Modal';
 import { TrashIcon, PlusIcon, DuplicateIcon, LightbulbIcon, LibraryIcon } from '../assets/icons';
 
 const XCircleIcon = () => (
@@ -8,16 +9,60 @@ const XCircleIcon = () => (
     </svg>
 );
 
-const TagEditor = ({ tags = [], onUpdate }) => {
+const TagPickerModal = ({ isOpen, onClose, onAddTags, uniqueTags, existingTags }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTags, setSelectedTags] = useState(new Set());
+
+    const availableTags = useMemo(() => {
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return uniqueTags.filter(tag => 
+            !existingTags.includes(tag) && tag.toLowerCase().includes(lowercasedTerm)
+        );
+    }, [uniqueTags, existingTags, searchTerm]);
+
+    const handleToggleTag = (tag) => {
+        const newSelection = new Set(selectedTags);
+        if (newSelection.has(tag)) {
+            newSelection.delete(tag);
+        } else {
+            newSelection.add(tag);
+        }
+        setSelectedTags(newSelection);
+    };
+
+    const handleAdd = () => {
+        onAddTags(Array.from(selectedTags));
+        onClose();
+        setSelectedTags(new Set());
+        setSearchTerm('');
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Bankdan teq seçin">
+            <input type="text" placeholder="Teq axtar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-2 mb-4 border border-gray-300 rounded-md" />
+            <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                {availableTags.map(tag => (
+                    <label key={tag} className="flex items-center p-2 rounded-md hover:bg-gray-100 cursor-pointer">
+                        <input type="checkbox" checked={selectedTags.has(tag)} onChange={() => handleToggleTag(tag)} className="h-4 w-4 text-orange-600 rounded mr-3" />
+                        {tag}
+                    </label>
+                ))}
+            </div>
+            <div className="mt-6 flex justify-end">
+                <Button onClick={handleAdd} disabled={selectedTags.size === 0}>Seçilmişləri əlavə et ({selectedTags.size})</Button>
+            </div>
+        </Modal>
+    );
+};
+
+const TagEditor = ({ tags = [], onUpdate, uniqueTags = [] }) => {
     const [inputValue, setInputValue] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' || e.key === ',') {
             e.preventDefault();
-            const newTag = inputValue.trim();
-            if (newTag && !tags.includes(newTag)) {
-                onUpdate([...tags, newTag]);
-            }
+            addTag(inputValue.trim());
             setInputValue('');
         }
     };
@@ -26,10 +71,20 @@ const TagEditor = ({ tags = [], onUpdate }) => {
         onUpdate(tags.filter(tag => tag !== tagToRemove));
     };
 
+    const addTag = (tag) => {
+        if (tag && !tags.includes(tag)) {
+            onUpdate([...tags, tag]);
+        }
+    };
+
+    const handleAddMultipleTags = (tagsToAdd) => {
+        onUpdate([...tags, ...tagsToAdd]);
+    };
+
     return (
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Teqlər (Enter və ya vergül ilə əlavə et)</label>
-            <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-md bg-white">
+            <div className="flex flex-wrap items-center gap-2 p-1.5 border border-gray-300 rounded-md bg-white">
                 {tags.map((tag, index) => (
                     <span key={index} className="flex items-center gap-1 bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-1 rounded-full">
                         {tag}
@@ -44,9 +99,21 @@ const TagEditor = ({ tags = [], onUpdate }) => {
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Yeni teq əlavə et..."
-                    className="flex-1 bg-transparent outline-none p-1 text-sm"
+                    className="flex-1 bg-transparent outline-none p-1 text-sm min-w-[120px]"
                 />
+                {uniqueTags.length > 0 && (
+                    <Button onClick={() => setIsModalOpen(true)} variant="secondary" size="sm" className="!p-1.5 !rounded-full h-6 w-6" title="Bankdan teq seç">
+                        <PlusIcon className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
+            <TagPickerModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onAddTags={handleAddMultipleTags}
+                uniqueTags={uniqueTags}
+                existingTags={tags}
+            />
         </div>
     );
 };
@@ -94,6 +161,16 @@ const AnswerEditor = ({ question, onUpdate }) => {
     const removeOrderItem = (index) => {
         const newItems = question.orderItems.filter((_, i) => i !== index);
         onUpdate({ ...question, orderItems: newItems });
+    };
+    const handleFillInTheBlanksChange = (e) => {
+        const text = e.target.value;
+        const correctAnswers = (text.match(/\[(.*?)\]/g) || []).map(b => b.slice(1, -1));
+        onUpdate({
+            ...question,
+            text: text, // The text itself now contains the answers
+            correctAnswers: correctAnswers,
+            options: [] // Not used for this type
+        });
     };
 
     switch (question.type) {
@@ -144,6 +221,14 @@ const AnswerEditor = ({ question, onUpdate }) => {
                     <Button onClick={addOrderItem} variant="secondary" className="mt-3 text-sm"><PlusIcon /> Element əlavə et</Button>
                 </div>
             );
+        case 'fillInTheBlanks':
+            return (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Mətn və boşluqlar</label>
+                    <p className="text-xs text-gray-500 mb-2">Düzgün cavabları kvadrat mötərizə içinə alın. Məsələn: `Paytaxt [Bakı]`.</p>
+                    <textarea value={question.text || ''} onChange={handleFillInTheBlanksChange} placeholder="Mətni daxil edin..." rows="4" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
+                </div>
+            );
         case 'open':
             return (
                 <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm flex items-center gap-2">
@@ -155,7 +240,7 @@ const AnswerEditor = ({ question, onUpdate }) => {
     }
 };
 
-const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSaveToBank }) => {
+const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSaveToBank, onGenerateVariation, uniqueTags }) => {
     const [localQuestion, setLocalQuestion] = useState(question);
 
     useEffect(() => {
@@ -195,6 +280,7 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSa
                             <option value="trueFalse">Doğru/Yanlış</option>
                             <option value="ordering">Sıralama</option>
                             <option value="open">Açıq Sual</option>
+                            <option value="fillInTheBlanks">Boşluqları Doldur</option>
                         </select>
                     </div>
                     <div>
@@ -203,6 +289,7 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSa
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button onClick={onGenerateVariation} variant="secondary" className="!p-2" title="Bənzər sual yarat (AI)"><LightbulbIcon /></Button>
                     <Button onClick={onSaveToBank} variant="secondary" className="!p-2" title="Sualı banka əlavə et"><LibraryIcon /></Button>
                     <Button onClick={onDuplicate} variant="secondary" className="!p-2" title="Dublikat et"><DuplicateIcon /></Button>
                     <Button onClick={onDelete} variant="danger" className="!p-2" title="Sualı sil"><TrashIcon /></Button>
@@ -210,10 +297,14 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSa
             </div>
 
             <div className="p-4 space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Sualın mətni</label>
-                    <textarea name="text" value={localQuestion.text} onChange={handleInputChange} placeholder="Sualınızı bura daxil edin..." rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
-                </div>
+                {localQuestion.type === 'fillInTheBlanks' ? (
+                    <AnswerEditor question={localQuestion} onUpdate={setLocalQuestion} />
+                ) : (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Sualın mətni</label>
+                        <textarea name="text" value={localQuestion.text} onChange={handleInputChange} placeholder="Sualınızı bura daxil edin..." rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
+                    </div>
+                )}
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Şəkil URL-i (istəyə bağlı)</label>
                     <input type="text" name="imageUrl" value={localQuestion.imageUrl || ''} onChange={handleInputChange} placeholder="https://example.com/image.png" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
@@ -222,16 +313,18 @@ const QuestionEditor = ({ question, index, onUpdate, onDelete, onDuplicate, onSa
                     <label className="block text-sm font-medium text-gray-700">Audio URL-i (istəyə bağlı)</label>
                     <input type="text" name="audioUrl" value={localQuestion.audioUrl || ''} onChange={handleInputChange} placeholder="https://example.com/audio.mp3" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm" />
                 </div>
-                <TagEditor tags={localQuestion.tags || []} onUpdate={handleTagsChange} />
+                <TagEditor tags={localQuestion.tags || []} onUpdate={handleTagsChange} uniqueTags={uniqueTags} />
                 <div>
                     <label className="block text-sm font-medium text-gray-700">İzah (istəyə bağlı)</label>
                     <textarea name="explanation" value={localQuestion.explanation || ''} onChange={handleInputChange} placeholder="Düzgün cavabın izahını bura daxil edin..." rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"></textarea>
                 </div>
             </div>
 
-            <div className="p-4 bg-gray-50/50 border-t border-gray-200 rounded-b-lg">
-                <AnswerEditor question={localQuestion} onUpdate={setLocalQuestion} />
-            </div>
+            {localQuestion.type !== 'fillInTheBlanks' && (
+                <div className="p-4 bg-gray-50/50 border-t border-gray-200 rounded-b-lg">
+                    <AnswerEditor question={localQuestion} onUpdate={setLocalQuestion} />
+                </div>
+            )}
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useHasAccess } from '../hooks/useHasAccess';
@@ -55,38 +56,36 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
     return (
         <div className="relative group transition-transform duration-200 hover:-translate-y-1">
             <Card className={`flex flex-col group-hover:shadow-orange-200 transition-shadow duration-200 ${quiz.isArchived || !isEffectivelyPublished ? 'bg-gray-100' : ''}`}>
-                <div className="flex-grow">
-                    <div className="flex flex-col sm:flex-row justify-between items-start mb-2">
-                        <h2 className="text-xl font-bold text-gray-800 flex-1 pr-2 mb-2 sm:mb-0">{quiz.title}</h2>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                                {quiz.isArchived ? (
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-600 bg-gray-200 px-2 py-1 rounded-full whitespace-nowrap">ARXİVDƏ</span>
-                                ) : (
-                                    <>
-                                        {!isEffectivelyPublished && (
-                                            <span className="text-xs font-semibold uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-1 rounded-full whitespace-nowrap">
-                                                {quiz.visibility === 'restricted' ? 'Məhdud' : 'Qaralama'}
-                                            </span>
-                                        )}
-                                        <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-1 rounded-full whitespace-nowrap">{quiz.category || 'Kateqoriyasız'}</span>
-                                    </>
-                                )}
-                                {isAdmin && (
-                                    <span className={`text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap ${quiz.visibility === 'public' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
-                                        {quiz.visibility === 'public' ? 'Açıq' : 'Məhdud'}
+                <div className="flex-grow flex flex-col">
+                    <div className="flex justify-between items-start mb-2">
+                        <h2 className="text-xl font-bold text-gray-800 flex-1 pr-2">{quiz.title}</h2>
+                        <button onClick={(e) => { e.stopPropagation(); toggleBookmark(quiz.id, 'quiz'); }} className="p-1 rounded-full hover:bg-orange-100 text-orange-500 flex-shrink-0" title={isSaved ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}>
+                            <BookmarkIcon filled={isSaved} />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                        {quiz.isArchived ? (
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-600 bg-gray-200 px-2 py-1 rounded-full whitespace-nowrap">ARXİVDƏ</span>
+                        ) : (
+                            <>
+                                {!isEffectivelyPublished && (
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-yellow-800 bg-yellow-200 px-2 py-1 rounded-full whitespace-nowrap">
+                                        {quiz.visibility === 'restricted' ? 'Məhdud' : 'Qaralama'}
                                     </span>
                                 )}
-                            </div>
-                            <button onClick={(e) => { e.stopPropagation(); toggleBookmark(quiz.id, 'quiz'); }} className="p-1 rounded-full hover:bg-orange-100 text-orange-500" title={isSaved ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}>
-                                <BookmarkIcon filled={isSaved} />
-                            </button>
-                        </div>
+                                <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-1 rounded-full whitespace-nowrap">{quiz.category || 'Kateqoriyasız'}</span>
+                            </>
+                        )}
+                        {isAdmin && (
+                            <span className={`text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-full whitespace-nowrap ${quiz.visibility === 'public' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                                {quiz.visibility === 'public' ? 'Açıq' : 'Məhdud'}
+                            </span>
+                        )}
                     </div>
                     <p className="text-gray-600 mb-4 h-12 overflow-hidden text-sm">{quiz.description}</p>
-                    <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
+                    <div className="flex justify-between items-center text-sm text-gray-500 mt-auto mb-4">
                         <span>{questions.length} sual</span>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap justify-end">
                             {quiz.passcode && (
                                 <span className="flex items-center gap-1 font-medium text-gray-600" title="Giriş kodu tələb olunur">
                                     <LockClosedIcon className="h-4 w-4" />
@@ -105,7 +104,7 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
                         </div>
                     </div>
                 </div>
-                <div className="flex items-stretch gap-2 mt-auto">
+                <div className="flex items-stretch gap-2">
                     <Button onClick={() => onStartQuiz(quiz.id)} className="flex-1" disabled={questions.length === 0 || quiz.isArchived || !status.active || !isEffectivelyPublished}><PlayIcon /> <span className="hidden sm:inline ml-1">Başla</span></Button>
                     {isAdmin && (
                         <div className="relative" ref={menuRef}>
@@ -137,14 +136,20 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
 const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDeleteRequest, onCloneQuiz, onArchiveRequest, onStartSmartPractice, profile, onToggleStatus, onAssignRequest, toggleBookmark, isBookmarked, onSetVisibilityRequest }) => {
     const isAdmin = profile?.role === 'admin';
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState('date_desc');
-    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [sortBy, setSortBy] = useState('date_desc'); 
     const [viewMode, setViewMode] = useState('published'); // published, drafts, archived
+    const [searchParams] = useSearchParams();
+    const categoryFromUrl = searchParams.get('category');
+    const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'all');
 
     const categories = useMemo(() => {
         const activeQuizzes = quizzes.filter(q => !q.isArchived);
         return ['all', ...new Set(activeQuizzes.map(q => q.category || 'Kateqoriyasız'))];
     }, [quizzes]);
+
+    useEffect(() => {
+        setSelectedCategory(categoryFromUrl || 'all');
+    }, [categoryFromUrl]);
 
     const sortedAndFilteredQuizzes = useMemo(() => {
         const term = searchTerm.toLowerCase();
@@ -196,7 +201,13 @@ const QuizListPage = ({ quizzes, onStartQuiz, onAddNewQuiz, onEditQuiz, onDelete
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="relative flex-grow w-full">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3"><SearchIcon /></span>
-                        <input type="text" placeholder="Adına və ya təsvirinə görə axtarış..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition" />
+                        <input
+                            type="text"
+                            placeholder="Adına və ya təsvirinə görə axtarış..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg w-full focus:ring-orange-400 focus:border-orange-400 transition"
+                        />
                     </div>
                     <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
                         {viewMode !== 'archived' && (

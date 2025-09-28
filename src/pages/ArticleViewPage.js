@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import Card from '../components/ui/Card';
+import { useOnClickOutside } from 'usehooks-ts';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, PlayIcon, CheckCircleIcon } from '../assets/icons';
-import Comments from '../components/Comments';
+import { ArrowLeftIcon, PlayIcon, CheckCircleIcon, PencilSquareIcon } from '../assets/icons';
+import Comments from '../components/Comments'; 
+import AnnotationPopup from '../components/AnnotationPopup';
 
 const ArticleStyles = () => (
     <style>{`
@@ -58,12 +60,24 @@ const ArticleStyles = () => (
             font-style: italic !important;
             color: #4b5563 !important; /* gray-600 */
         }
+        .highlighted-annotation {
+            background-color: rgba(253, 230, 138, 0.5) !important; /* yellow-300 with 50% opacity */
+            cursor: pointer;
+            position: relative;
+        }
+        .highlighted-annotation:hover {
+            background-color: rgba(252, 211, 77, 0.6) !important; /* yellow-400 with 60% opacity */
+        }
     `}</style>
 );
 
-const ArticleViewPage = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment }) => {
+const ArticleViewPage = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment, userAnnotations, onSaveAnnotation, onDeleteAnnotation }) => {
     const { articleId } = useParams();
     const navigate = useNavigate();
+    const articleContentRef = useRef(null); 
+    const [popupState, setPopupState] = useState({ stage: 'hidden', x: 0, y: 0, selection: null, existingAnnotation: null });
+
+    const articleAnnotations = useMemo(() => (userAnnotations || []).filter(a => a.article_id === Number(articleId)), [userAnnotations, articleId]);
 
     const article = useMemo(() => {
         if (!articles || !quizzes) return null;
@@ -80,15 +94,129 @@ const ArticleViewPage = ({ articles, quizzes, onStartQuiz, onMarkAsRead, article
         return articleProgress.some(p => p.article_id === Number(articleId));
     }, [articleProgress, articleId]);
 
+    const annotatedContent = useMemo(() => {
+        let content = article?.content || '';
+        if (articleAnnotations.length > 0) {
+            articleAnnotations.forEach(annotation => {
+                // Use a regular expression to replace all occurrences of the highlighted text
+                // This is a simplified approach. A more robust solution might need to handle HTML tags within the text.
+                const highlightedHtml = `<mark class="highlighted-annotation" data-annotation-id="${annotation.id}">${annotation.highlighted_text}</mark>`;
+                // Escape special characters for regex
+                const escapedText = annotation.highlighted_text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                content = content.replace(new RegExp(escapedText, 'g'), highlightedHtml);
+            });
+        }
+        return DOMPurify.sanitize(content);
+    }, [article?.content, articleAnnotations]);
+
+    useEffect(() => {
+        const contentNode = articleContentRef.current;
+        if (!contentNode) return;
+
+        const handleMouseUp = (e) => {
+            // Don't trigger a new annotation if clicking on an existing one
+            if (e.target.closest('.annotation-trigger-container')) {
+                return;
+            }
+
+            // Don't trigger a new annotation if clicking on an existing one
+            if (e.target.closest('.highlighted-annotation')) {
+                return;
+            }
+
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+
+            if (selectedText.length > 0 && contentNode.contains(selection.anchorNode)) {
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                setPopupState({
+                    stage: 'trigger',
+                    x: rect.left + window.scrollX,
+                    y: rect.top + window.scrollY - 40, // Position above selection
+                    selection: { text: selectedText, range },
+                    existingAnnotation: null
+                });
+            } else {
+                if (!e.target.closest('.annotation-popup-container')) { setPopupState({ stage: 'hidden' }); }
+            }
+        };
+
+        const handleHighlightClick = (e) => {
+            const highlightElement = e.target.closest('.highlighted-annotation');
+            if (highlightElement) {
+                const annotationId = highlightElement.dataset.annotationId;
+                const annotation = articleAnnotations.find(a => a.id === Number(annotationId));
+                if (annotation) {
+                    const rect = highlightElement.getBoundingClientRect(); 
+                    setPopupState({
+                        stage: 'editor',
+                        x: rect.left + window.scrollX,
+                        y: rect.top + window.scrollY - 40,
+                        selection: null,
+                        existingAnnotation: annotation
+                    });
+                }
+            }
+        };
+
+        document.addEventListener('mouseup', handleMouseUp);
+        contentNode.addEventListener('click', handleHighlightClick);
+
+        return () => {
+            document.removeEventListener('mouseup', handleMouseUp);
+            contentNode.removeEventListener('click', handleHighlightClick);
+        };
+    }, [articleAnnotations]); // Re-bind events if annotations change
+
+
+
+    const handleSaveAnnotation = (noteContent) => { 
+        const data = popupState.existingAnnotation
+            ? { ...popupState.existingAnnotation, note_content: noteContent }
+            : { article_id: article.id, highlighted_text: popupState.selection.text, note_content: noteContent };
+        onSaveAnnotation(data);
+        setPopupState({ stage: 'hidden' });
+    };
+
     if (!article) {
         return <Card><p className="text-center">Məqalə tapılmadı.</p></Card>;
     }
 
-    const sanitizedContent = DOMPurify.sanitize(article.content);
+    const AnnotationTrigger = ({ x, y, onClick, onClose }) => {
+        const ref = useRef(null);
+        useOnClickOutside(ref, onClose);
+        return (
+            <div ref={ref} className="absolute z-20 annotation-trigger-container" style={{ left: `${x}px`, top: `${y}px` }}>
+                <Button onClick={onClick} size="sm">
+                    <PencilSquareIcon /> Qeyd əlavə et
+                </Button>
+            </div>
+        );
+    };
 
     return (
         <>
-            <ArticleStyles />
+            <ArticleStyles /> 
+            {popupState.stage === 'trigger' && (
+                <AnnotationTrigger
+                    x={popupState.x}
+                    y={popupState.y}
+                    onClick={() => setPopupState(prev => ({ ...prev, stage: 'editor' }))}
+                    onClose={() => setPopupState({ stage: 'hidden' })}
+                />
+            )}
+            {popupState.stage === 'editor' && (
+                <AnnotationPopup
+                    x={popupState.x}
+                    y={popupState.y}
+                    annotation={popupState.existingAnnotation}
+                    onSave={handleSaveAnnotation}
+                    onDelete={onDeleteAnnotation}
+                    onClose={() => setPopupState({ stage: 'hidden' })}
+                    className="annotation-popup-container"
+                />
+            )}
             <div className="animate-fade-in max-w-4xl mx-auto space-y-6">
                 <div className="flex justify-between items-center">
                     <Button variant="secondary" onClick={() => navigate('/articles')}><ArrowLeftIcon /> Məqalələr siyahısına qayıt</Button>
@@ -100,7 +228,7 @@ const ArticleViewPage = ({ articles, quizzes, onStartQuiz, onMarkAsRead, article
                 </div>
                 <Card>
                     <h1 className="text-3xl font-bold text-gray-800 mb-4">{article.title}</h1>
-                    <div className="article-content" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
+                    <div ref={articleContentRef} className="article-content" dangerouslySetInnerHTML={{ __html: annotatedContent }} />
                     <div className="mt-6 pt-6 border-t">
                         <Comments
                             targetId={article.id}

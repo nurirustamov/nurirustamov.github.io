@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/Button'; 
 import Modal from '../components/ui/Modal';
-import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, TrophyIcon, GoldMedalIcon, SilverMedalIcon, BronzeMedalIcon, ClockIcon, ChartBarIcon } from '../assets/icons';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
@@ -89,12 +89,27 @@ const QuestionRespondersModal = ({ isOpen, onClose, question, results }) => {
     );
 };
 
-const QuizAnalysisPage = ({ quizzes, results, allUsers }) => {
+const QuizAnalysisPage = ({ quizzes, results, allUsers, studentGroups }) => {
     const { quizId } = useParams();
     const [analyzingQuestion, setAnalyzingQuestion] = useState(null);
+    const [selectedGroupId, setSelectedGroupId] = useState('all');
+    const [selectedStudentId, setSelectedStudentId] = useState('all');
 
     const quiz = useMemo(() => quizzes.find(q => q.id === Number(quizId)), [quizzes, quizId]);
-    const quizResults = useMemo(() => results.filter(r => r.quizId === Number(quizId) && r.status !== 'pending_review'), [results, quizId]);
+
+    const quizResults = useMemo(() => {
+        let filtered = results.filter(r => r.quizId === Number(quizId) && r.status !== 'pending_review');
+
+        if (selectedGroupId !== 'all') {
+            const group = studentGroups.find(g => g.id === Number(selectedGroupId));
+            if (group) {
+                const memberIds = new Set((group.members || []).map(m => m.user_id));
+                filtered = filtered.filter(r => memberIds.has(r.user_id));
+            }
+        }
+
+        return filtered;
+    }, [results, quizId, selectedGroupId, studentGroups]);
 
     const analysis = useMemo(() => {
         if (!quiz || quizResults.length === 0) return null;
@@ -118,7 +133,34 @@ const QuizAnalysisPage = ({ quizzes, results, allUsers }) => {
                     correctCount++;
                 }
             });
-            return { ...q, correctPercentage: (correctCount / totalAttempts) * 100 };
+
+            // Time analysis
+            let totalTime = 0, timeCount = 0;
+            let totalTimeCorrect = 0, correctTimeCount = 0;
+            let totalTimeIncorrect = 0, incorrectTimeCount = 0;
+
+            quizResults.forEach(r => {
+                const timeSpent = r.time_per_question?.[q.id];
+                if (timeSpent !== undefined) {
+                    totalTime += timeSpent;
+                    timeCount++;
+                    if (isAnswerCorrect(q, r.userAnswers[q.id])) {
+                        totalTimeCorrect += timeSpent;
+                        correctTimeCount++;
+                    } else {
+                        totalTimeIncorrect += timeSpent;
+                        incorrectTimeCount++;
+                    }
+                }
+            });
+
+            return {
+                ...q,
+                correctPercentage: (correctCount / totalAttempts) * 100,
+                averageTime: timeCount > 0 ? (totalTime / timeCount) : 0,
+                averageTimeCorrect: correctTimeCount > 0 ? (totalTimeCorrect / correctTimeCount) : 0,
+                averageTimeIncorrect: incorrectTimeCount > 0 ? (totalTimeIncorrect / incorrectTimeCount) : 0,
+            };
         });
 
         return { totalAttempts, averageScore, highestScore, lowestScore, scoreDistribution, questionAnalysis };
@@ -151,8 +193,68 @@ const QuizAnalysisPage = ({ quizzes, results, allUsers }) => {
             });
     }, [quizResults, allUsers]);
 
-    if (!quiz) return <Card><p className="text-center">Test tapılmadı.</p></Card>;
-    if (!analysis) return <Card><p className="text-center">Bu test üçün heç bir nəticə tapılmadı.</p></Card>;
+    const mostTimeConsumingQuestions = useMemo(() => {
+        if (!analysis || !analysis.questionAnalysis) return [];
+        return [...analysis.questionAnalysis]
+            .filter(q => q.averageTime > 0)
+            .sort((a, b) => b.averageTime - a.averageTime)
+            .slice(0, 5);
+    }, [analysis]);
+
+    const studentsWhoTookQuiz = useMemo(() => {
+        if (!quizResults) return [];
+        const studentMap = new Map();
+        quizResults.forEach(result => {
+            if (!studentMap.has(result.user_id)) {
+                studentMap.set(result.user_id, {
+                    id: result.user_id,
+                    name: `${result.userName} ${result.userSurname}`
+                });
+            }
+        });
+        return Array.from(studentMap.values());
+    }, [quizResults]);
+
+    const studentTimeAnalysis = useMemo(() => {
+        if (selectedStudentId === 'all' || !quizResults) return null;
+
+        const studentResult = quizResults
+            .filter(r => r.user_id === selectedStudentId)
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+        if (!studentResult || !studentResult.time_per_question) return [];
+
+        return Object.entries(studentResult.time_per_question)
+            .map(([qId, time]) => {
+                const question = quiz.questions.find(q => q.id === Number(qId));
+                return { id: qId, text: question?.text || 'Naməlum sual', timeSpent: time };
+            })
+            .filter(q => q.text !== 'Naməlum sual')
+            .sort((a, b) => b.timeSpent - a.timeSpent)
+            .slice(0, 5);
+
+    }, [selectedStudentId, quizResults, quiz]);
+
+    if (!quiz) {
+        return <Card><p className="text-center">Test tapılmadı.</p></Card>;
+    }
+
+    if (!analysis) {
+        return (
+            <Card className="text-center py-12">
+                <p className="text-gray-500 mb-6 text-lg">
+                    {selectedGroupId !== 'all' ? 'Seçilmiş qrup üçün bu testdə heç bir nəticə tapılmadı.' : 'Bu test üçün heç bir nəticə tapılmadı.'}
+                </p>
+                {selectedGroupId !== 'all' ? (
+                    <Button variant="secondary" onClick={() => { setSelectedGroupId('all'); setSelectedStudentId('all'); }}>
+                        <ArrowLeftIcon /> Filtri sıfırla
+                    </Button>
+                ) : (
+                    <Link to="/stats"><Button variant="secondary"><ArrowLeftIcon /> Statistikaya qayıt</Button></Link>
+                )}
+            </Card>
+        );
+    }
 
     const distributionChartData = {
         labels: ['0-9%', '10-19%', '20-29%', '30-39%', '40-49%', '50-59%', '60-69%', '70-79%', '80-89%', '90-100%'],
@@ -210,6 +312,68 @@ const QuizAnalysisPage = ({ quizzes, results, allUsers }) => {
             </Card>
 
             <Card>
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Filtrlər</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="group-select" className="block text-sm font-medium text-gray-700 mb-1">Qrup seçin</label>
+                        <select
+                            id="group-select"
+                            value={selectedGroupId}
+                            onChange={e => { setSelectedGroupId(e.target.value); setSelectedStudentId('all'); }}
+                            className="w-full p-2 border border-gray-300 rounded-md bg-white focus:ring-orange-500 focus:border-orange-500"
+                        >
+                            <option value="all">Bütün Qruplar</option>
+                            {(studentGroups || []).map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="student-select" className="block text-sm font-medium text-gray-700 mb-1">Tələbə seçin</label>
+                        <select
+                            id="student-select"
+                            value={selectedStudentId}
+                            onChange={e => setSelectedStudentId(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md bg-white focus:ring-orange-500 focus:border-orange-500"
+                        >
+                            <option value="all">Bütün tələbələr (ümumi)</option>
+                            {studentsWhoTookQuiz.map(student => <option key={student.id} value={student.id}>{student.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Ən Çətin Suallar (ən az düzgün cavab)</h3>
+                    <ul className="list-inside space-y-2">{analysis.questionAnalysis.filter(q => q.correctPercentage < 100).sort((a, b) => a.correctPercentage - b.correctPercentage).slice(0, 5).map((q) => <li key={q.id}><button onClick={() => setAnalyzingQuestion(q)} className="text-left text-blue-600 hover:underline flex items-center gap-2"><ChartBarIcon /><strong>{q.text}</strong></button> - <span className="text-red-600">{q.correctPercentage.toFixed(1)}% düzgün</span></li>)}</ul>
+                </Card>
+                <Card>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Ən Çox Vaxt Aparan Suallar</h3>
+                    {mostTimeConsumingQuestions.length > 0 ? (
+                        <ul className="list-inside space-y-2">
+                            {mostTimeConsumingQuestions.map(q => (
+                                <li key={q.id}><button onClick={() => setAnalyzingQuestion(q)} className="text-left text-blue-600 hover:underline flex items-center gap-2"><ClockIcon /><strong>{q.text}</strong></button> - <span className="text-purple-600">{q.averageTime.toFixed(1)} san. (orta)</span></li>
+                            ))}
+                        </ul>
+                    ) : <p className="text-gray-500">Vaxt məlumatı tapılmadı.</p>}
+                </Card>
+            </div>
+            
+            {studentTimeAnalysis && studentTimeAnalysis.length > 0 && (
+                <Card>
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Seçilmiş Tələbə üçün Ən Çox Vaxt Aparan Suallar</h3>
+                    <ul className="list-inside space-y-2">
+                        {studentTimeAnalysis.map(q => (
+                            <li key={q.id}>
+                                <button onClick={() => setAnalyzingQuestion(analysis.questionAnalysis.find(aq => aq.id === Number(q.id)))} className="text-left text-blue-600 hover:underline flex items-center gap-2">
+                                    <ClockIcon /><strong>{q.text}</strong>
+                                </button> - <span className="text-purple-600">{q.timeSpent.toFixed(1)} san.</span>
+                            </li>
+                        ))}
+                    </ul>
+                </Card>
+            )}
+
+            <Card>
                 <h3 className="text-lg font-bold text-gray-800 mb-4">Sualların Analizi</h3>
                 <div className="space-y-2">
                     {analysis.questionAnalysis.map((q, index) => (
@@ -224,7 +388,19 @@ const QuizAnalysisPage = ({ quizzes, results, allUsers }) => {
                                 </div>
                                 <span className="font-bold text-sm w-16 text-right" style={{ color: q.correctPercentage > 60 ? '#16A34A' : q.correctPercentage > 30 ? '#D97706' : '#DC2626' }}>{q.correctPercentage.toFixed(1)}%</span>
                             </div>
-                             <p className="text-xs text-gray-500 mt-1">düzgün cavab verdi</p>
+                            <p className="text-xs text-gray-500 mt-1">düzgün cavab verdi</p>
+                            
+                            {q.averageTime > 0 && (
+                                <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600 space-y-1">
+                                    <p><strong>Orta sərf olunan vaxt:</strong> {q.averageTime.toFixed(1)} san.</p>
+                                    {q.averageTimeCorrect > 0 && (
+                                        <p className="text-green-600"><strong>Düzgün cavab üçün orta vaxt:</strong> {q.averageTimeCorrect.toFixed(1)} san.</p>
+                                    )}
+                                    {q.averageTimeIncorrect > 0 && (
+                                        <p className="text-red-600"><strong>Səhv cavab üçün orta vaxt:</strong> {q.averageTimeIncorrect.toFixed(1)} san.</p>
+                                    )}
+                                </div>
+                            )}
                         </button>
                     ))}
                 </div>

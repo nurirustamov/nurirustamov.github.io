@@ -13,9 +13,9 @@ const WeakTopicsCard = ({ topics }) => {
             <h2 className="text-xl font-bold mb-4">Təkmilləşdiriləcək Mövzular</h2>
             <div className="space-y-4">
                 {topics.map(topic => (
-                    <Link 
-                        to={`/search?q=${encodeURIComponent(topic.name)}`} 
-                        key={topic.name} 
+                    <Link
+                        to={`/quizzes?category=${encodeURIComponent(topic.name)}`}
+                        key={topic.name}
                         className="block p-4 rounded-lg bg-orange-50 hover:bg-orange-100 transition-colors"
                     >
                         <div className="flex justify-between items-center">

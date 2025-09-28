@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import OrderingQuestion from '../components/OrderingQuestion';
-import { SpeakerIcon, ArrowLeftIcon, ArrowRightIcon, CheckIcon, LightbulbIcon } from '../assets/icons';
+import { SpeakerIcon, ArrowLeftIcon, ArrowRightIcon, CheckIcon, LightbulbIcon, ArrowUpIcon, ArrowDownIcon } from '../assets/icons';
 
 // --- Helper Functions ---
 const isAnswerCorrect = (question, userAnswer) => {
@@ -14,10 +13,16 @@ const isAnswerCorrect = (question, userAnswer) => {
         case 'multiple':
             const correctOptions = question.correctAnswers.map(i => question.options[i]).sort();
             const userOptions = userAnswer ? [...userAnswer].sort() : [];
+            if (!Array.isArray(userAnswer)) return false;
             return JSON.stringify(correctOptions) === JSON.stringify(userOptions);
         case 'textInput': return userAnswer.trim().toLowerCase() === question.correctAnswers[0].trim().toLowerCase();
         case 'trueFalse': return userAnswer === question.correctAnswer;
-        case 'ordering': return JSON.stringify(userAnswer) === JSON.stringify(question.orderItems);
+        case 'ordering': return JSON.stringify(userAnswer) === JSON.stringify(question.orderItems); 
+        case 'fillInTheBlanks':
+            if (!Array.isArray(userAnswer) || userAnswer.length !== question.correctAnswers.length) return false;
+            return userAnswer.every((answer, index) =>
+                (answer || '').trim().toLowerCase() === (question.correctAnswers[index] || '').trim().toLowerCase()
+            );
         default: return false;
     }
 };
@@ -33,6 +38,32 @@ const speakText = (text) => {
 
 // --- Question Renderer Component ---
 const QuestionRenderer = ({ q, index, answers, handleAnswerChange, isPracticeMode, isAnswerChecked, shuffledOptions, isSubmitting }) => {
+    // Initialize shuffled items for ordering questions only once
+    useEffect(() => {
+        if (q.type === 'ordering' && !answers[q.id]) {
+            const shuffled = [...q.orderItems].sort(() => Math.random() - 0.5);
+            handleAnswerChange(q.id, shuffled);
+        }
+    }, [q.type, q.id, q.orderItems, answers, handleAnswerChange]);
+
+    const handleMoveItem = (questionId, index, direction) => {
+        const currentItems = answers[questionId];
+        if (!currentItems) return;
+
+        const newItems = [...currentItems];
+        const targetIndex = index + direction;
+
+        if (targetIndex < 0 || targetIndex >= newItems.length) {
+            return; // Out of bounds
+        }
+
+        // Swap items
+        [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
+
+        handleAnswerChange(questionId, newItems);
+    };
+
+
     const optionsForCurrentQuestion = q.shuffleOptions && shuffledOptions[q.id] ? shuffledOptions[q.id] : q.options;
 
     const getOptionClassName = (option, optIndex) => {
@@ -47,6 +78,48 @@ const QuestionRenderer = ({ q, index, answers, handleAnswerChange, isPracticeMod
         if (isSelected) return 'border-red-500 bg-red-100';
         return 'border-transparent';
     };
+
+    if (q.type === 'fillInTheBlanks') {
+        const parts = q.text.split(/(\[.*?\])/g).filter(part => part);
+        let blankIndex = -1;
+        return (
+            <div key={q.id} className="bg-orange-50 p-4 sm:p-6 rounded-lg mb-6">
+                <h3 className="font-semibold text-lg sm:text-xl text-gray-800 mb-4">{index + 1}. Cümləni tamamlayın:</h3>
+                {q.imageUrl && <img src={q.imageUrl} alt="Question illustration" className="my-4 rounded-lg max-h-60 w-full object-contain mx-auto" onError={(e) => e.target.style.display = 'none'} />}
+                <div className="text-lg leading-loose">
+                    {parts.map((part, i) => {
+                        if (part.startsWith('[') && part.endsWith(']')) {
+                            blankIndex++;
+                            const currentBlankIndex = blankIndex;
+                            const userAnswer = (answers[q.id] || [])[currentBlankIndex] || '';
+                            const correctAnswer = q.correctAnswers[currentBlankIndex] || '';
+                            let blankStyle = 'border-gray-400 focus:border-orange-500';
+                            if (isPracticeMode && isAnswerChecked) {
+                                const isBlankCorrect = userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+                                blankStyle = isBlankCorrect ? 'border-green-500 bg-green-100' : 'border-red-500 bg-red-100';
+                            }
+
+                            return (
+                                <span key={i} className="inline-block">
+                                    <input
+                                        type="text"
+                                        value={userAnswer}
+                                        onChange={(e) => { const newAnswers = [...(answers[q.id] || [])]; newAnswers[currentBlankIndex] = e.target.value; handleAnswerChange(q.id, newAnswers); }}
+                                        className={`inline-block w-32 sm:w-40 mx-1 p-1 border-b-2 bg-transparent outline-none text-center ${blankStyle}`}
+                                        disabled={isSubmitting || (isPracticeMode && isAnswerChecked)}
+                                    />
+                                    {isPracticeMode && isAnswerChecked && userAnswer.trim().toLowerCase() !== correctAnswer.trim().toLowerCase() && (
+                                        <span className="text-xs text-green-600 font-semibold">({correctAnswer})</span>
+                                    )}
+                                </span>
+                            );
+                        }
+                        return <span key={i}>{part}</span>;
+                    })}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div key={q.id} className="bg-orange-50 p-4 sm:p-6 rounded-lg mb-6">
@@ -74,7 +147,26 @@ const QuestionRenderer = ({ q, index, answers, handleAnswerChange, isPracticeMod
                     <label className={`block p-3 rounded-lg hover:bg-orange-100 cursor-pointer flex-1 text-center border-2 ${isPracticeMode && isAnswerChecked && q.correctAnswer === false ? 'border-green-500 bg-green-100' : (isPracticeMode && isAnswerChecked && answers[q.id] === false ? 'border-red-500 bg-red-100' : 'border-transparent')}`}><input type="radio" name={q.id} checked={answers[q.id] === false} onChange={() => handleAnswerChange(q.id, false)} className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500" disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} /> Yanlış</label>
                 </div>
             )}
-            {q.type === 'ordering' && <OrderingQuestion question={q} onAnswer={(orderedItems) => handleAnswerChange(q.id, orderedItems)} disabled={(isPracticeMode && isAnswerChecked) || isSubmitting} />}
+            {q.type === 'ordering' && (
+                <div className="space-y-2 mt-4">
+                    {(answers[q.id] || []).map((item, itemIndex) => (
+                        <div key={itemIndex} className={`flex items-center p-3 rounded-lg border-2 ${isPracticeMode && isAnswerChecked ? (item === q.orderItems[itemIndex] ? 'border-green-500 bg-green-100' : 'border-red-500 bg-red-100') : 'bg-white border-gray-200'}`}>
+                            <span className="flex-grow text-gray-800">{item}</span>
+                            <div className="flex gap-1">
+                                <Button variant="secondary" size="sm" className="!p-2" onClick={() => handleMoveItem(q.id, itemIndex, -1)} disabled={itemIndex === 0 || isSubmitting || (isPracticeMode && isAnswerChecked)}>
+                                    <ArrowUpIcon />
+                                </Button>
+                                <Button variant="secondary" size="sm" className="!p-2" onClick={() => handleMoveItem(q.id, itemIndex, 1)} disabled={itemIndex === (answers[q.id] || []).length - 1 || isSubmitting || (isPracticeMode && isAnswerChecked)}>
+                                    <ArrowDownIcon />
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                    {isPracticeMode && isAnswerChecked && JSON.stringify(answers[q.id]) !== JSON.stringify(q.orderItems) && (
+                        <p className="text-sm text-gray-600 mt-2">Düzgün sıralama: {q.orderItems.join(', ')}</p>
+                    )}
+                </div>
+            )}
             {q.type === 'open' && (
                 <textarea
                     value={answers[q.id] || ''}
@@ -114,10 +206,15 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
         return initialState;
     });
 
+    const [deadline] = useState(() => Date.now() + (quiz.timeLimit || 10) * 60 * 1000);
     const [timeLeft, setTimeLeft] = useState((quiz.timeLimit || 10) * 60);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAnswerChecked, setIsAnswerChecked] = useState(false);
+
+    // --- NEW: Time tracking ---
+    const questionStartTimeRef = useRef(null);
+    const timePerQuestionRef = useRef({});
 
     const isPracticeMode = mode === 'practice';
     const displayAll = quiz.display_all_questions && !isPracticeMode;
@@ -137,23 +234,68 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
         return shuffled;
     }, [quizQuestions, quiz.shuffleOptions]);
 
-    const handleSubmitQuiz = useCallback(() => {
-        if (isSubmitting) return;
-        setIsSubmitting(true);
-        if (onSubmit) {
-            onSubmit(answers, quizQuestions);
+    const recordTimeSpent = useCallback(() => {
+        if (questionStartTimeRef.current && quizQuestions[currentQuestionIndex]) {
+            const questionId = quizQuestions[currentQuestionIndex].id;
+            const timeSpent = (Date.now() - questionStartTimeRef.current) / 1000; // in seconds
+            timePerQuestionRef.current[questionId] = (timePerQuestionRef.current[questionId] || 0) + timeSpent;
         }
-    }, [isSubmitting, onSubmit, answers, quizQuestions]);
+        questionStartTimeRef.current = Date.now();
+    }, [currentQuestionIndex, quizQuestions]);
 
     useEffect(() => {
-        if (isPracticeMode) return;
-        if (timeLeft <= 0) {
-            handleSubmitQuiz();
+        // Start timer for the current question
+        questionStartTimeRef.current = Date.now();
+    }, [currentQuestionIndex]);
+
+    useEffect(() => {
+        // This effect handles recording time if the user navigates away
+        const questionsRef = quizQuestions;
+        const indexRef = currentQuestionIndex;
+        const submittingRef = isSubmitting;
+
+        return () => {
+            if (!submittingRef && questionsRef[indexRef]) {
+                recordTimeSpent();
+            }
+        };
+    }, [isSubmitting, quizQuestions, currentQuestionIndex, recordTimeSpent]);
+
+    const handleSubmitQuiz = useCallback(() => {
+        if (isSubmitting) return;
+        recordTimeSpent(); // Record time for the last question
+        setIsSubmitting(true);
+        if (onSubmit) {
+            onSubmit(answers, quizQuestions, timePerQuestionRef.current);
+        }
+    }, [isSubmitting, onSubmit, answers, quizQuestions, recordTimeSpent]);
+
+    useEffect(() => {
+        if (isPracticeMode || isSubmitting) {
             return;
         }
-        const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
-        return () => clearInterval(timer);
-    }, [timeLeft, isPracticeMode, handleSubmitQuiz]);
+
+        let animationFrameId;
+
+        const updateTimer = () => {
+            const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+
+            setTimeLeft(prevTime => {
+                // Обновляем состояние, только если значение секунды изменилось, чтобы избежать лишних ререндеров
+                return prevTime !== remaining ? remaining : prevTime;
+            });
+
+            if (remaining > 0) {
+                animationFrameId = requestAnimationFrame(updateTimer);
+            } else {
+                handleSubmitQuiz();
+            }
+        };
+
+        animationFrameId = requestAnimationFrame(updateTimer);
+
+        return () => cancelAnimationFrame(animationFrameId);
+    }, [isPracticeMode, isSubmitting, deadline, handleSubmitQuiz]);
 
     const handleAnswerChange = (questionId, answer) => {
         if (isPracticeMode && isAnswerChecked) return;
@@ -161,7 +303,9 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
     };
 
     const handleCheckAnswer = () => setIsAnswerChecked(true);
+
     const handleNextQuestion = () => {
+        recordTimeSpent();
         setIsAnswerChecked(false);
         setCurrentQuestionIndex(prev => prev + 1);
     };
@@ -208,10 +352,14 @@ const TakeQuizPage = ({ quiz, user, onSubmit, mode = 'exam' }) => {
                         )
                     ) : (
                         <div className="w-full flex justify-between items-center">
-                            <Button onClick={() => setCurrentQuestionIndex(i => i - 1)} disabled={currentQuestionIndex === 0 || isSubmitting} variant="secondary"><ArrowLeftIcon /> Geri</Button>
+                            {quiz.allow_back_navigation === true ? (
+                                <Button onClick={() => { recordTimeSpent(); setCurrentQuestionIndex(i => i - 1); }} disabled={currentQuestionIndex === 0 || isSubmitting} variant="secondary"><ArrowLeftIcon /> Geri</Button>
+                            ) : (
+                                <div /> // Empty div for spacing
+                            )}
                             <span>{currentQuestionIndex + 1} / {quizQuestions.length}</span>
                             {currentQuestionIndex < quizQuestions.length - 1 ? (
-                                <Button onClick={() => setCurrentQuestionIndex(i => i + 1)} disabled={isSubmitting}>İrəli <ArrowRightIcon /></Button>
+                                <Button onClick={() => { recordTimeSpent(); setCurrentQuestionIndex(i => i + 1); }} disabled={isSubmitting}>İrəli <ArrowRightIcon /></Button>
                             ) : (
                                 <Button onClick={handleSubmitQuiz} disabled={isSubmitting}>
                                     {isSubmitting ? 'Göndərilir...' : <><CheckIcon /> Bitir</>}

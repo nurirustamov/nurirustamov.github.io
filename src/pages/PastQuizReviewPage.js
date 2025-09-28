@@ -75,6 +75,10 @@ const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment,
             isCorrect = JSON.stringify(userAnswer) === JSON.stringify(question.orderItems);
             correctAnswerText = question.orderItems.map((item, i) => `${i + 1}. ${item}`).join('; ');
             userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.map((item, i) => `${i + 1}. ${item}`).join('; ') : 'Cavab yoxdur';
+        } else if (question.type === 'fillInTheBlanks') {
+            isCorrect = Array.isArray(userAnswer) && userAnswer.length === question.correctAnswers.length && userAnswer.every((answer, index) => (answer || '').trim().toLowerCase() === (question.correctAnswers[index] || '').trim().toLowerCase());
+            correctAnswerText = question.correctAnswers.join(', ');
+            userAnswerText = userAnswer && userAnswer.length > 0 ? userAnswer.join(', ') : 'Cavab yoxdur';
         }
 
         return {
@@ -133,31 +137,57 @@ const PastQuizReviewPage = ({ result, quiz, profile, fetchComments, postComment,
                                     <h3 className="font-semibold text-base sm:text-lg text-gray-800 flex-1">{index + 1}. {originalQuestion.text}</h3>
                                 </div>
                                 
+                                {result.time_per_question && result.time_per_question[q.id] !== undefined && (
+                                    <div className="pl-8 mt-2 flex items-center text-xs text-gray-500">
+                                        <ClockIcon className="w-4 h-4 mr-1" />
+                                        <span>Sərf olunan vaxt: {Math.round(result.time_per_question[q.id])} saniyə</span>
+                                    </div>
+                                )}
                                 {originalQuestion.imageUrl && (
                                     <div className="pl-8 mt-3"><img src={originalQuestion.imageUrl} alt="Question illustration" className="rounded-lg max-h-40 sm:max-h-60 w-auto mx-auto" onError={(e) => e.target.style.display = 'none'} /></div>
                                 )}
 
-                                <div className="mt-3 pl-8 space-y-2 text-sm sm:text-base">
-                                    <p>
-                                        <strong>Tələbənin cavabı:</strong>{' '}
-                                        <span className={`${styles.textColor} font-medium`}>{userAnswerText}</span>
-                                    </p>
-                                    {status === 'incorrect' && (
+                                {originalQuestion.type === 'fillInTheBlanks' ? (
+                                    <div className="mt-3 pl-8 text-lg leading-loose">
+                                        {originalQuestion.text.split(/(\[.*?\])/g).filter(part => part).map((part, i) => {
+                                            if (part.startsWith('[') && part.endsWith(']')) {
+                                                const blankIndex = originalQuestion.text.substring(0, originalQuestion.text.indexOf(part)).split('[').length - 1;
+                                                const userAnswerForBlank = (userAnswer || [])[blankIndex] || '';
+                                                const correctAnswerForBlank = originalQuestion.correctAnswers[blankIndex] || '';
+                                                const isCorrect = userAnswerForBlank.trim().toLowerCase() === correctAnswerForBlank.trim().toLowerCase();
+                                                return (
+                                                    <span key={i} className={`inline-block font-semibold px-2 py-1 rounded-md text-sm ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {userAnswerForBlank || '___'}
+                                                        {!isCorrect && <span className="ml-2 text-xs text-green-700 font-bold">({correctAnswerForBlank})</span>}
+                                                    </span>
+                                                );
+                                            }
+                                            return <span key={i}>{part}</span>;
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 pl-8 space-y-2 text-sm sm:text-base">
                                         <p>
-                                            <strong>Düzgün cavab:</strong>{' '}
-                                            <span className="text-green-700 font-medium">{correctAnswerText}</span>
+                                            <strong>Tələbənin cavabı:</strong>{' '}
+                                            <span className={`${styles.textColor} font-medium`}>{userAnswerText}</span>
                                         </p>
-                                    )}
-                                    {status === 'pending' && (
-                                        <p className="font-semibold text-yellow-800">({correctAnswerText})</p>
-                                    )}
-                                    {manualScore !== null && (
-                                        <p>
-                                            <strong>Yoxlayan tərəfindən verilən bal:</strong>{' '}
-                                            <span className="font-bold text-blue-600">{manualScore} / {originalQuestion.points}</span>
-                                        </p>
-                                    )}
-                                </div>
+                                        {status === 'incorrect' && (
+                                            <p>
+                                                <strong>Düzgün cavab:</strong>{' '}
+                                                <span className="text-green-700 font-medium">{correctAnswerText}</span>
+                                            </p>
+                                        )}
+                                        {status === 'pending' && (
+                                            <p className="font-semibold text-yellow-800">({correctAnswerText})</p>
+                                        )}
+                                        {manualScore !== null && (
+                                            <p>
+                                                <strong>Yoxlayan tərəfindən verilən bal:</strong>{' '}
+                                                <span className="font-bold text-blue-600">{manualScore} / {originalQuestion.points}</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
 
                                 {originalQuestion.explanation && (
                                     <div className="mt-4 pt-3 pl-8 border-t border-gray-300/70">

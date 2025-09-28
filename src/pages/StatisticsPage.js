@@ -17,6 +17,13 @@ const formatDate = (dateString) => {
     return date.toLocaleString('az-AZ');
 };
 
+const formatTotalTime = (timeData) => {
+    if (!timeData || typeof timeData !== 'object') return 'N/A';
+    const totalSeconds = Object.values(timeData).reduce((sum, time) => sum + time, 0);
+    if (totalSeconds < 60) return `${Math.round(totalSeconds)} san.`;
+    return `${Math.floor(totalSeconds / 60)} dəq. ${Math.round(totalSeconds % 60)} san.`;
+};
+
 const isAnswerCorrect = (question, userAnswer) => {
     if (userAnswer === undefined || userAnswer === null) return false;
     if (!question || !question.type) return false;
@@ -261,7 +268,7 @@ const ResultsTable = ({ results, onReviewResult, onSort, sortBy, sortDirection }
         <Card>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50"><tr><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('date')}>Tarix {getSortIndicator('date')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('name')}>Ad Soyad {getSortIndicator('name')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('quizTitle')}>Test {getSortIndicator('quizTitle')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('score')}>Nəticə {getSortIndicator('score')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Əməliyyat</th></tr></thead>
+                    <thead className="bg-gray-50"><tr><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('date')}>Tarix {getSortIndicator('date')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('name')}>Ad Soyad {getSortIndicator('name')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('quizTitle')}>Test {getSortIndicator('quizTitle')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('score')}>Nəticə {getSortIndicator('score')}</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ümumi Vaxt</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th><th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Əməliyyat</th></tr></thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {paginatedResults.map((result) => (
                             <tr key={result.id} className="hover:bg-gray-50">
@@ -269,6 +276,7 @@ const ResultsTable = ({ results, onReviewResult, onSort, sortBy, sortDirection }
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><Link to={`/student/${result.user_id}`} className="text-blue-600 hover:underline">{result.userName} {result.userSurname}</Link></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900"><Link to={`/stats/quiz/${result.quizId}`} className="text-blue-600 hover:underline">{result.quizTitle}</Link></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500"><div className="flex flex-col"><span className="font-bold">{result.score} / {result.totalPoints} bal</span><span className="text-xs text-gray-400">{result.percentage}%</span></div></td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatTotalTime(result.time_per_question)}</td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${result.status === 'pending_review' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{result.status === 'pending_review' ? <ClockIcon className="w-4 h-4 mr-1.5" /> : <CheckIcon className="w-4 h-4 mr-1.5" />} {result.status === 'pending_review' ? 'Yoxlanılır' : 'Tamamlanıb'}</span></td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium"><Button onClick={() => onReviewResult(result)} variant={result.status === 'pending_review' ? 'primary' : 'secondary'} size="sm">{result.status === 'pending_review' ? <ClipboardCheckIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}<span className="ml-1">{result.status === 'pending_review' ? 'Yoxla' : 'Bax'}</span></Button></td>
                             </tr>

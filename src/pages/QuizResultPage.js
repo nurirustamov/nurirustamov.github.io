@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { ArrowLeftIcon, EyeIcon, TrophyIcon, ClockIcon } from '../assets/icons';
+import { ArrowLeftIcon, EyeIcon, TrophyIcon, ClockIcon, RefreshIcon } from '../assets/icons';
 import { supabase } from '../supabaseClient';
 
-const QuizResultPage = ({ lastResult, onBack, onReview }) => {
+const QuizResultPage = ({ lastResult, onBack, onReview, onReviewPractice }) => {
     const {
         score,
         totalPoints,
@@ -133,6 +133,12 @@ const QuizResultPage = ({ lastResult, onBack, onReview }) => {
                         <EyeIcon />
                         Cavablara bax
                     </Button>
+                    {status !== 'pending_review' && percentage < 100 && (
+                        <Button onClick={() => onReviewPractice(lastResult)} variant="primary" className="w-full sm:w-auto">
+                            <RefreshIcon />
+                            Səhvlər üzərində işlə
+                        </Button>
+                    )}
                 </div>
             </Card>
         </div>

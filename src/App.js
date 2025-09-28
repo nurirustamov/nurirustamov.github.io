@@ -18,7 +18,7 @@ import AssignmentModal from './components/ui/AssignmentModal';
 import VisibilityModal from './components/ui/VisibilityModal'; // Import the new modal
 import GlobalSearch from './components/ui/GlobalSearch';
 import { ChartBarIcon, BookOpenIcon, PencilAltIcon, UploadIcon, LibraryIcon, PlusIcon, LogoutIcon, TrophyIcon as LeaderboardIcon, UserCircleIcon, ShieldCheckIcon, DocumentTextIcon, CollectionIcon, BellIcon, MenuIcon, XIcon, PaperAirplaneIcon, DuplicateIcon, ClipboardCheckIcon, BookmarkIcon } from './assets/icons';
- 
+
 // --- Lazy Loaded Pages ---
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -153,10 +153,16 @@ const isAnswerCorrect = (question, userAnswer) => {
         case 'multiple':
             const correctOptions = question.correctAnswers.map(i => question.options[i]).sort();
             const userOptions = Array.isArray(userAnswer) ? [...userAnswer].sort() : [];
+            if (!Array.isArray(userAnswer)) return false;
             return JSON.stringify(correctOptions) === JSON.stringify(userOptions);
         case 'textInput': return userAnswer.trim().toLowerCase() === question.correctAnswers[0].trim().toLowerCase();
         case 'trueFalse': return userAnswer === question.correctAnswer;
         case 'ordering': return JSON.stringify(userAnswer) === JSON.stringify(question.orderItems);
+        case 'fillInTheBlanks':
+            if (!Array.isArray(userAnswer) || userAnswer.length !== question.correctAnswers.length) return false;
+            return userAnswer.every((answer, index) => 
+                answer.trim().toLowerCase() === question.correctAnswers[index].trim().toLowerCase()
+            );
         default: return false;
     }
 };
@@ -363,7 +369,7 @@ const StudentReportPageWrapper = ({ results, onReviewResult, profile, showToast 
     return <StudentReportPage results={results} onBack={() => navigate('/stats')} onReviewResult={onReviewResult} />;
 };
 
-const QuestionBankPageWrapper = ({ questionBank, onSave, onDelete, showToast }) => ( <QuestionBankPage questionBank={questionBank} onSave={onSave} onDelete={onDelete} showToast={showToast} /> );
+const QuestionBankPageWrapper = ({ questionBank, onSave, onDelete, showToast, onCreateSmartQuiz }) => ( <QuestionBankPage questionBank={questionBank} onSave={onSave} onDelete={onDelete} showToast={showToast} onCreateSmartQuiz={onCreateSmartQuiz} /> );
 
 const LeaderboardPageWrapper = ({ results, profile, allUsers }) => (
     <LeaderboardPage results={results} profile={profile} allUsers={allUsers} />
@@ -380,8 +386,8 @@ const PastQuizReviewPageWrapper = ({ quizResults, quizzes, profile, fetchComment
 
 const ManualReviewPageWrapper = ({ results, quizzes, onUpdateResult }) => ( <ManualReviewPage results={results} quizzes={quizzes} onUpdateResult={onUpdateResult} /> );
 
-const QuizAnalysisPageWrapper = ({ quizzes, results, allUsers }) => (
-    <QuizAnalysisPage quizzes={quizzes} results={results} allUsers={allUsers} />
+const QuizAnalysisPageWrapper = ({ quizzes, results, allUsers, studentGroups }) => (
+    <QuizAnalysisPage quizzes={quizzes} results={results} allUsers={allUsers} studentGroups={studentGroups} />
 );
 
 const ArticleEditorPageWrapper = ({ onSave, showToast, ...props }) => {
@@ -393,7 +399,7 @@ const ArticleEditorPageWrapper = ({ onSave, showToast, ...props }) => {
     return <ArticleEditorPage {...props} article={article} onSave={onSave} showToast={showToast} />;
 };
 
-const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment, setPasscodeContent, setIsContentPasscodeModalOpen, showToast }) => {
+const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, articleProgress, profile, fetchComments, postComment, deleteComment, setPasscodeContent, setIsContentPasscodeModalOpen, showToast, userAnnotations, onSaveAnnotation, onDeleteAnnotation }) => {
     const { articleId } = useParams();
     const navigate = useNavigate();
     const [isAccessGranted, setIsAccessGranted] = useState(false);
@@ -434,7 +440,7 @@ const ArticleViewPageWrapper = ({ articles, quizzes, onStartQuiz, onMarkAsRead, 
     if (!isAccessGranted || !hasAccess) {
         return <div className="text-center py-12">Giriş yoxlanılır...</div>;
     }
-    return <ArticleViewPage articles={articles} quizzes={quizzes} onStartQuiz={onStartQuiz} onMarkAsRead={onMarkAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
+    return <ArticleViewPage articles={articles} quizzes={quizzes} onStartQuiz={onStartQuiz} onMarkAsRead={onMarkAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} userAnnotations={userAnnotations} onSaveAnnotation={onSaveAnnotation} onDeleteAnnotation={onDeleteAnnotation} />;
 };
 
 const CourseEditorPageWrapper = ({ editingCourseDraft, setEditingCourseDraft, articles, quizzes, onSave, showToast, onAssignRequest }) => {
@@ -599,6 +605,7 @@ const GlobalSearchPageWrapper = ({ quizzes, courses, articles, learningPaths, on
 const QuizPageWrapper = ({
                              pageType,
                              editingQuizDraft,
+                             reviewPracticeQuiz,
                              customPracticeQuiz,
                              quizzes,
                              lastResult,
@@ -606,13 +613,16 @@ const QuizPageWrapper = ({
                              session,
                              profile,
                              existingCategories,
+                             uniqueTags,
                              showToast,
                              handleSaveQuiz,
                              handleImportRequest,
                              handleAddFromBankRequest,
                              setEditingQuizDraft,
+                             handleSaveAllQuestionsToBank,
                              handleSubmitQuiz,
                              fetchComments,
+                             handleStartReviewPractice,
                              postComment,
                              deleteComment,
                              onSaveQuestionToBank,
@@ -627,13 +637,14 @@ const QuizPageWrapper = ({
     const quiz = useMemo(() => {
         if (pageType === 'edit') return editingQuizDraft;
         if (pageType === 'custom_practice') return customPracticeQuiz;
+        if (pageType === 'review_practice') return reviewPracticeQuiz;
         return quizzes.find(q => q.id === Number(id));
-    }, [id, pageType, quizzes, editingQuizDraft, customPracticeQuiz]);
+    }, [id, pageType, quizzes, editingQuizDraft, customPracticeQuiz, reviewPracticeQuiz]);
 
     const hasAccess = useHasAccess(quiz, profile);
 
     useEffect(() => {
-        if (pageType !== 'take' && pageType !== 'practice') {
+        if (!['take', 'practice', 'review_practice'].includes(pageType)) {
             setIsAccessGranted(true);
             setIsLoading(false);
             return;
@@ -691,16 +702,17 @@ const QuizPageWrapper = ({
     }
 
     // If access is granted, render the correct page
-    switch (pageType) {
-        case 'edit': return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} onImportRequest={handleImportRequest} onAddFromBankRequest={handleAddFromBankRequest} onDraftChange={setEditingQuizDraft} onSaveQuestionToBank={onSaveQuestionToBank} />;
-        case 'take': return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order) => handleSubmitQuiz(quiz.id, answers, order)} mode="exam" />;
+    switch (pageType) { 
+        case 'edit': return <QuizEditorPage quiz={quiz} onSave={handleSaveQuiz} onBack={() => navigate('/')} showToast={showToast} existingCategories={existingCategories} uniqueTags={uniqueTags} onImportRequest={handleImportRequest} onAddFromBankRequest={handleAddFromBankRequest} onDraftChange={setEditingQuizDraft} onSaveQuestionToBank={onSaveQuestionToBank} onSaveAllQuestionsToBank={handleSaveAllQuestionsToBank} />;
+        case 'take': return <TakeQuizPage quiz={quiz} user={profile} onSubmit={(answers, order, time) => handleSubmitQuiz(quiz.id, answers, order, time)} mode="exam" />;
         case 'practice': return <TakeQuizPage quiz={quiz} user={{ username: 'Tələbə' }} mode="practice" />;
+        case 'review_practice': return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
         case 'custom_practice': return <TakeQuizPage quiz={quiz} user={profile} mode="practice" />;
-        case 'result': return <QuizResultPage lastResult={lastResult} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} />;
+        case 'result': return <QuizResultPage lastResult={lastResult} onBack={() => navigate('/')} onReview={() => navigate(`/quiz/${id}/review`)} onReviewPractice={handleStartReviewPractice} />;
         case 'review':
             const resultForReview = lastResult || quizResults.find(r => r.quizId === quiz.id && r.user_id === session.user.id);
             if (!resultForReview) return <div className="text-center text-red-500">Nəticə tapılmadı!</div>;
-            return <QuizReviewPage quiz={quiz} userAnswers={resultForReview.userAnswers} questionOrder={resultForReview.questionOrder} onBack={() => navigate(-1)} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
+            return <QuizReviewPage quiz={quiz} result={resultForReview} onBack={() => navigate(-1)} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} />;
         default: return navigate('/');
     }
 };
@@ -724,12 +736,14 @@ export default function App() {
     const [articleProgress, setArticleProgress] = useState([]);
     const [completedCourses, setCompletedCourses] = useState([]);
     const [notifications, setNotifications] = useState([]);
+    const [reviewPracticeQuiz, setReviewPracticeQuiz] = useState(null);
     const [customPracticeQuiz, setCustomPracticeQuiz] = useState(null);
     const [editingCourseDraft, setEditingCourseDraft] = useState(null);
     const [editingLearningPathDraft, setEditingLearningPathDraft] = useState(null);
     const [editingQuizDraft, setEditingQuizDraft] = useState(null);
     const [editingArticleDraft, setEditingArticleDraft] = useState(null);
     const [userAchievements, setUserAchievements] = useState([]);
+    const [userAnnotations, setUserAnnotations] = useState([]);
     const [allAchievements, setAllAchievements] = useState([]);
     const [allUsers, setAllUsers] = useState([]); // For admin panel
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -1180,6 +1194,9 @@ export default function App() {
                 const { data: allQuestsData } = await supabase.from('quests').select('*').order('created_at', { ascending: false });
                 setAllQuests(allQuestsData || []);
 
+                const { data: annotationsData } = await supabase.from('user_annotations').select('*').eq('user_id', session.user.id);
+                setUserAnnotations(annotationsData || []);
+
             } else {
                 setProfile(null);
                 setQuizzes([]);
@@ -1200,6 +1217,7 @@ export default function App() {
                 setUserAssignments([]);
                 setUserQuests([]);
                 setAllQuests([]);
+                setUserAnnotations([]);
             }
         };
 
@@ -1238,6 +1256,16 @@ export default function App() {
         const categories = new Set(articles.map(a => a.category).filter(Boolean));
         return Array.from(categories).sort();
     }, [articles]);
+
+    const uniqueBankTags = useMemo(() => {
+        const allTags = new Set();
+        questionBank.forEach(q => {
+            if (q.tags && Array.isArray(q.tags)) {
+                q.tags.forEach(tag => allTags.add(tag));
+            }
+        });
+        return Array.from(allTags).sort();
+    }, [questionBank]);
 
     const dueFlashcardsCount = useMemo(() => {
         if (!flashcardDecks || !userFlashcardReviews || !session) return 0;
@@ -1605,6 +1633,123 @@ export default function App() {
         }
     };
 
+    const handleSaveAllQuestionsToBank = async (questions) => {
+        if (!checkAdmin()) return;
+        if (!questions || questions.length === 0) {
+            showToast("Banka əlavə etmək üçün heç bir sual yoxdur.");
+            return;
+        }
+
+        showToast("Suallar banka əlavə edilir...");
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        // Get all existing question texts from the bank to avoid multiple DB queries inside the loop.
+        const { data: existingQuestions, error: fetchError } = await supabase
+            .from('question_bank')
+            .select('text');
+
+        if (fetchError) {
+            showToast(`Bankdakı sualları yoxlayarkən xəta: ${fetchError.message}`);
+            return;
+        }
+
+        const existingTextSet = new Set(existingQuestions.map(q => q.text));
+        const questionsToInsert = [];
+
+        for (const question of questions) {
+            const { id, ...questionToSave } = question; // Remove temporary ID
+
+            if (!existingTextSet.has(questionToSave.text)) {
+                questionsToInsert.push(questionToSave);
+                existingTextSet.add(questionToSave.text); // Avoid duplicates within the same batch
+            } else {
+                skippedCount++;
+            }
+        }
+
+        if (questionsToInsert.length > 0) {
+            const { data, error } = await supabase.from('question_bank').insert(questionsToInsert).select();
+            if (error) {
+                showToast(`Sualları banka əlavə edərkən xəta: ${error.message}`);
+            } else {
+                addedCount = data.length;
+                setQuestionBank(prev => [...data, ...prev]);
+            }
+        }
+
+        const summaryMessage = `${addedCount} sual uğurla banka əlavə edildi. ${skippedCount} sual (dublikat olduğu üçün) ötürüldü.`;
+        showToast(summaryMessage);
+    };
+    const handleCreateSmartQuiz = (title, criteria) => {
+        if (!checkAdmin()) return;
+
+        let selectedQuestions = [];
+        let errors = [];
+
+        criteria.forEach(crit => {
+            const availableQuestions = questionBank.filter(q => (q.tags || []).includes(crit.tag));
+            if (availableQuestions.length < crit.count) {
+                errors.push(`"${crit.tag}" teqi üçün kifayət qədər sual yoxdur (tələb olunan: ${crit.count}, mövcud: ${availableQuestions.length}).`);
+            } else {
+                // Select random questions
+                const shuffled = [...availableQuestions].sort(() => 0.5 - Math.random());
+                selectedQuestions.push(...shuffled.slice(0, crit.count));
+            }
+        });
+
+        if (errors.length > 0) {
+            showToast(errors.join('\n'));
+            return;
+        }
+
+        const newQuizDraft = {
+            title: title || 'Ağıllı Test',
+            description: 'Bu test avtomatik olaraq Suallar Bankından yaradılıb.',
+            category: criteria.map(c => c.tag).join(', '),
+            questions: selectedQuestions.map(q => ({ ...q, id: Date.now() + Math.random() })), // Assign temporary unique IDs
+            is_published: false,
+            shuffleQuestions: true,
+            shuffleOptions: true,
+        };
+
+        setEditingQuizDraft(newQuizDraft);
+        navigate(`/quiz/${Date.now()}/edit`); // Use a temporary ID for the URL
+        showToast('Ağıllı test qaralaması yaradıldı! İndi onu redaktə edə bilərsiniz.');
+    };
+
+    const handleStartReviewPractice = (result) => {
+        if (!result) {
+            showToast("Təhlil üçün nəticə tapılmadı.");
+            return;
+        }
+
+        const originalQuiz = quizzes.find(q => q.id === result.quizId);
+        if (!originalQuiz) {
+            showToast("Testin orijinal versiyası tapılmadı.");
+            return;
+        }
+
+        const incorrectQuestions = result.questionOrder.filter(q_ordered => {
+            const originalQuestion = (originalQuiz.questions || []).find(q => q.id === q_ordered.id);
+            return originalQuestion && !isAnswerCorrect(originalQuestion, result.userAnswers[originalQuestion.id]);
+        });
+
+        if (incorrectQuestions.length === 0) {
+            showToast("Təbrik edirik! Bu testdə səhv cavabınız yoxdur.");
+            return;
+        }
+
+        const reviewQuiz = {
+            id: `review-practice-${result.id}`,
+            title: `Səhvlər üzərində iş: ${originalQuiz.title}`,
+            questions: incorrectQuestions,
+        };
+
+        setReviewPracticeQuiz(reviewQuiz);
+        navigate("/practice/review");
+    };
     const handleStartQuizRequest = async (quizId) => {
         if (!session) {
             showToast('Testə başlamaq üçün daxil olun.');
@@ -1780,7 +1925,7 @@ export default function App() {
         }
     };
 
-    const handleSubmitQuiz = async (quizId, answers, questionsInOrder) => {
+    const handleSubmitQuiz = async (quizId, answers, questionsInOrder, timePerQuestion) => {
         const quiz = quizzes.find(q => q.id === quizId);
         let score = 0;
         let totalPoints = 0;
@@ -1801,6 +1946,13 @@ export default function App() {
                 else if (q.type === 'textInput') isCorrect = userAnswer.trim().toLowerCase() === q.correctAnswers[0].trim().toLowerCase();
                 else if (q.type === 'trueFalse') isCorrect = userAnswer === q.correctAnswer;
                 else if (q.type === 'ordering') isCorrect = JSON.stringify(userAnswer) === JSON.stringify(q.orderItems);
+                else if (q.type === 'fillInTheBlanks') {
+                    if (Array.isArray(userAnswer) && userAnswer.length === q.correctAnswers.length) {
+                        isCorrect = userAnswer.every((answer, index) =>
+                            (answer || '').trim().toLowerCase() === (q.correctAnswers[index] || '').trim().toLowerCase()
+                        );
+                    }
+                }
             }
 
             if (isCorrect) {
@@ -1822,7 +1974,8 @@ export default function App() {
             status: hasOpenQuestions ? 'pending_review' : 'completed',
             userAnswers: answers,
             questionOrder: questionsInOrder,
-            user_id: session.user.id
+            user_id: session.user.id,
+            time_per_question: timePerQuestion || {}
         };
 
         const { data: newResult, error } = await supabase.from('quiz_results').insert(resultData).select().single();
@@ -2128,6 +2281,34 @@ export default function App() {
         showToast('Kurs uğurla yadda saxlandı!');
         navigate('/admin/courses');
     };
+
+    const handleSaveAnnotation = async (annotationData) => {
+        const { id, ...dataToSave } = annotationData;
+        let savedAnnotation;
+        if (id) { // Update existing
+            const { data, error } = await supabase.from('user_annotations').update(dataToSave).eq('id', id).select().single();
+            if (error) { showToast(`Annotasiyanı yeniləyərkən xəta: ${error.message}`); return; }
+            savedAnnotation = data;
+            setUserAnnotations(prev => prev.map(a => a.id === id ? savedAnnotation : a));
+        } else { // Create new
+            const { data, error } = await supabase.from('user_annotations').insert({ ...dataToSave, user_id: session.user.id }).select().single();
+            if (error) { showToast(`Annotasiyanı saxlayarkən xəta: ${error.message}`); return; }
+            savedAnnotation = data;
+            setUserAnnotations(prev => [...prev, savedAnnotation]);
+        }
+        showToast('Annotasiya yadda saxlandı!');
+    };
+
+    const handleDeleteAnnotation = async (annotationId) => {
+        const { error } = await supabase.from('user_annotations').delete().eq('id', annotationId);
+        if (error) {
+            showToast(`Annotasiyanı silərkən xəta: ${error.message}`);
+        } else {
+            setUserAnnotations(prev => prev.filter(a => a.id !== annotationId));
+            showToast('Annotasiya silindi.');
+        }
+    };
+
 
     const handleToggleCourseStatus = async (courseId, newStatus) => {
         if (!checkAdmin()) return;
@@ -2684,7 +2865,7 @@ export default function App() {
                                         <Route path="/profile" element={<ProfilePage session={session} profile={profile} showToast={showToast} onProfileUpdate={handleProfileUpdate} userAchievements={userAchievements} allAchievements={allAchievements} />} />
                                         <Route path="/leaderboard" element={<LeaderboardPageWrapper results={quizResults} profile={profile} allUsers={allUsers} />} />
                                         <Route path="/articles" element={<PublicArticleListPage articles={articles} articleProgress={articleProgress} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} profile={profile} />} />
-                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} showToast={showToast} />} />
+                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} showToast={showToast} userAnnotations={userAnnotations} onSaveAnnotation={handleSaveAnnotation} onDeleteAnnotation={handleDeleteAnnotation} />} />
                                         <Route path="/courses" element={<PublicCourseListPage courses={courses} articleProgress={articleProgress} quizResults={quizResults} session={session} onNavigate={handleContentNavigationRequest} toggleBookmark={toggleBookmark} isBookmarked={isBookmarked} profile={profile} />} />
                                         <Route path="/courses/:courseId" element={<CourseViewPageWrapper courses={courses} onStartQuiz={handleStartQuizRequest} articleProgress={articleProgress} quizResults={quizResults} session={session} profile={profile} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} showToast={showToast} />} />
                                         <Route path="/paths" element={<PublicLearningPathListPage learningPaths={learningPaths} profile={profile} />} />
@@ -2694,10 +2875,10 @@ export default function App() {
                                         <Route path="/groups/:groupId" element={<StudentGroupViewPageWrapper studentGroups={studentGroups} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} showToast={showToast} />} />
 
                                         {/* === ADMIN ROUTES === */}
-                                        <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} studentGroups={studentGroups} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} allUsers={allUsers} />} /></Routes></AdminRoute>} />
-                                        <Route path="/question-bank" element={<AdminRoute profile={profile} showToast={showToast}><QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} /></AdminRoute>} />
+                                        <Route path="/stats/*" element={<AdminRoute profile={profile} showToast={showToast}><Routes><Route path="/" element={<StatisticsPageWrapper results={quizResults} quizzes={quizzes} onReviewResult={handleReviewRequest} studentGroups={studentGroups} />} /><Route path="/quiz/:quizId" element={<QuizAnalysisPageWrapper quizzes={quizzes} results={quizResults} allUsers={allUsers} studentGroups={studentGroups} />} /></Routes></AdminRoute>} />
+                                        <Route path="/question-bank" element={<AdminRoute profile={profile} showToast={showToast}><QuestionBankPageWrapper questionBank={questionBank} onSave={handleSaveQuestionToBank} onDelete={handleDeleteQuestionFromBank} showToast={showToast} onCreateSmartQuiz={handleCreateSmartQuiz} /></AdminRoute>} />
                                         <Route path="/manual-review/:resultId" element={<AdminRoute profile={profile} showToast={showToast}><ManualReviewPageWrapper results={quizResults} quizzes={quizzes} onUpdateResult={handleUpdateResult} /></AdminRoute>} />
-                                        <Route path="/quiz/:id/edit" element={<AdminRoute profile={profile} showToast={showToast}><QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft, onSaveQuestionToBank: handleSaveQuestionFromEditorToBank }} /></AdminRoute>} />
+                                        <Route path="/quiz/:id/edit" element={<AdminRoute profile={profile} showToast={showToast}><QuizPageWrapper pageType="edit" {...{ editingQuizDraft, quizzes, existingCategories: existingQuizCategories, uniqueTags: uniqueBankTags, showToast, handleSaveQuiz, handleImportRequest, handleAddFromBankRequest, setEditingQuizDraft, onSaveQuestionToBank: handleSaveQuestionFromEditorToBank, handleSaveAllQuestionsToBank }} /></AdminRoute>} />
                                         <Route path="/admin" element={<AdminRoute profile={profile} showToast={showToast}><AdminPage /></AdminRoute>}>
                                             <Route index element={<AdminDashboardPage stats={adminDashboardStats} />} />
                                             <Route path="users" element={<UserManagementPage users={allUsers} onRoleChange={handleRoleChange} currentUserId={profile?.id} />} />
@@ -2720,12 +2901,13 @@ export default function App() {
                                             <Route path="decks/new" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
                                             <Route path="decks/edit/:deckId" element={<FlashcardDeckEditorPage deck={editingFlashcardDeckDraft} onDraftChange={setEditingFlashcardDeckDraft} onSave={handleSaveFlashcardDeck} showToast={showToast} />} />
                                         </Route>
-
+                                        <Route path="/articles/:articleId" element={<ArticleViewPageWrapper articles={articles} quizzes={quizzes} onStartQuiz={handleStartQuizRequest} onMarkAsRead={handleMarkArticleAsRead} articleProgress={articleProgress} profile={profile} fetchComments={fetchComments} postComment={postComment} deleteComment={deleteComment} setPasscodeContent={setPasscodeContent} setIsContentPasscodeModalOpen={setIsContentPasscodeModalOpen} showToast={showToast} userAnnotations={userAnnotations} onSaveAnnotation={handleSaveAnnotation} onDeleteAnnotation={handleDeleteAnnotation} />} />
                                         {/* === PUBLIC & USER ROUTES (with passcode and due date protection) === */}
-                                        <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz, setPasscodeQuiz, setIsPasscodeModalOpen, showToast }} />} />
+                                        <Route path="/quiz/:id/take" element={<QuizPageWrapper pageType="take" {...{ quizzes, profile, handleSubmitQuiz: (id, ans, ord, time) => handleSubmitQuiz(id, ans, ord, time), setPasscodeQuiz, setIsPasscodeModalOpen, showToast }} />} />
                                         <Route path="/quiz/:id/practice" element={<QuizPageWrapper pageType="practice" {...{ quizzes, profile, setPasscodeQuiz, setIsPasscodeModalOpen, showToast }} />} />
+                                        <Route path="/practice/review" element={<QuizPageWrapper pageType="review_practice" {...{ reviewPracticeQuiz, profile }} />} />
                                         <Route path="/practice/custom" element={<QuizPageWrapper pageType="custom_practice" {...{ customPracticeQuiz, profile }} />} /> {/* Custom practice doesn't need passcode */}
-                                        <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults }} />} /> {/* Results/reviews don't need passcode */}
+                                        <Route path="/quiz/:id/result" element={<QuizPageWrapper pageType="result" {...{ quizzes, lastResult, quizResults, handleStartReviewPractice }} />} /> {/* Results/reviews don't need passcode */}
                                         <Route path="/quiz/:id/review" element={<QuizPageWrapper pageType="review" {...{ quizzes, lastResult, quizResults, session, profile, fetchComments, postComment, deleteComment }} />} />
                                     </Routes>
                                 </main>

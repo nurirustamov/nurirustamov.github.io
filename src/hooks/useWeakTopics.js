@@ -38,19 +38,15 @@ export const useWeakTopics = (quizResults, quizzes, profile) => {
                 const originalQuestion = quiz.questions.find(q => q.id === q_ordered.id);
                 if (!originalQuestion) return;
 
-                const topics = [];
-                if (quiz.category) topics.push(quiz.category);
-                if (originalQuestion.tags && Array.isArray(originalQuestion.tags)) topics.push(...originalQuestion.tags);
-                if (topics.length === 0) return;
+                const category = quiz.category;
+                if (!category) return;
 
                 const correct = isAnswerCorrect(originalQuestion, result.userAnswers[originalQuestion.id]);
 
-                topics.forEach(topic => {
-                    if (!topicStats.has(topic)) topicStats.set(topic, { correct: 0, total: 0 });
-                    const stats = topicStats.get(topic);
-                    stats.total += 1;
-                    if (correct) stats.correct += 1;
-                });
+                if (!topicStats.has(category)) topicStats.set(category, { correct: 0, total: 0 });
+                const stats = topicStats.get(category);
+                stats.total += 1;
+                if (correct) stats.correct += 1;
             });
         });
 
