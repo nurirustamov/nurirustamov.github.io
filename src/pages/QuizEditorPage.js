@@ -297,12 +297,6 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
     };
 
     const handleGenerateAIQuestions = async (text, files, criteria, tags, totalPoints, numOptions, addImage, difficulty, generateDistractors) => {
-        const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-        if (!apiKey) {
-            showToast('Google Gemini API açarı tapılmadı. Zəhmət olmasa, .env faylını yoxlayın.');
-            throw new Error('API key not found');
-        }
-
         const questionRequests = criteria.map(c => `${c.count} ədəd "${c.type}" tipli sual`).join(', ');
         const totalQuestions = criteria.reduce((sum, c) => sum + c.count, 0);
         const pointsPerQuestion = Math.max(1, Math.floor(totalPoints / totalQuestions));
@@ -362,8 +356,8 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
             Mətn: "${text} ${fileBasedContent}"
         `;
 
-        // Use gemini-1.5-flash for multimodal capabilities
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+        // Вызываем нашу Supabase Edge Function
+        const url = `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/gemini-proxy`;
 
         const requestBody = {
             contents: [{ parts: [{ text: prompt }, ...fileParts] }]
@@ -373,6 +367,8 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
+                    // Добавляем заголовок авторизации Supabase
+                    'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(requestBody)
@@ -416,12 +412,6 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
 
     const handleGenerateVariation = async (originalQuestion) => {
         showToast('Bənzər sual yaradılır...');
-
-        const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-        if (!apiKey) {
-            showToast('Google Gemini API açarı tapılmadı.');
-            return;
-        }
 
         const { id, ...questionExample } = originalQuestion;
 
@@ -497,7 +487,7 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
             });
         }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+        const url = `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/gemini-proxy`;
         const requestBody = {
             contents: [{ parts: [{ text: prompt }, ...fileParts] }]
         };
@@ -505,7 +495,10 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(requestBody)
             });
 
