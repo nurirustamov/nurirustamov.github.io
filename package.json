@@ -10,8 +10,10 @@
     "@testing-library/user-event": "^13.5.0",
     "@tinymce/tinymce-react": "^6.3.0",
     "chart.js": "^4.4.3",
+    "docx": "^9.5.1",
     "dompurify": "^3.2.6",
     "easymde": "^2.20.0",
+    "file-saver": "^2.0.5",
     "gh-pages": "^6.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.2",
@@ -31,7 +33,9 @@
     "turndown": "^7.2.1",
     "turndown-plugin-gfm": "^1.0.2",
     "usehooks-ts": "^3.1.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "y-supabase": "^0.0.4-7-alpha",
+    "yjs": "^13.6.27"
   },
   "scripts": {
     "start": "react-scripts start",

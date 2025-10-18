@@ -1607,21 +1607,27 @@ export default function App() {
         // We don't want to save the temporary ID from the quiz draft
         const { id, ...questionToSave } = question;
 
-        // Check for duplicates in the bank based on question text
+        // Check for duplicates in the bank based on question text and options
+        // We stringify the options to create a comparable value.
+        const optionsString = JSON.stringify((questionToSave.options || []).sort());
+
         const { data: existing, error: checkError } = await supabase
             .from('question_bank')
-            .select('id')
+            .select('id, options')
             .eq('text', questionToSave.text)
-            .limit(1);
 
         if (checkError) {
             showToast(`Banka yoxlayarkən xəta: ${checkError.message}`);
             return;
         }
 
+        // Now, check if any of the returned questions also have the same options.
         if (existing && existing.length > 0) {
-            showToast('Bu sual artıq bankda mövcuddur.');
-            return;
+            const isTrulyDuplicate = existing.some(q => JSON.stringify((q.options || []).sort()) === optionsString);
+            if (isTrulyDuplicate) {
+                showToast('Bu sual (eyni mətn və variantlarla) artıq bankda mövcuddur.');
+                return;
+            }
         }
 
         const { data, error } = await supabase.from('question_bank').insert(questionToSave).select().single();
@@ -1648,22 +1654,27 @@ export default function App() {
         // Get all existing question texts from the bank to avoid multiple DB queries inside the loop.
         const { data: existingQuestions, error: fetchError } = await supabase
             .from('question_bank')
-            .select('text');
+            .select('text, options');
 
         if (fetchError) {
             showToast(`Bankdakı sualları yoxlayarkən xəta: ${fetchError.message}`);
             return;
         }
 
-        const existingTextSet = new Set(existingQuestions.map(q => q.text));
+        // Create a set of unique identifiers based on both text and sorted options.
+        const existingQuestionSet = new Set(
+            existingQuestions.map(q => `${q.text}::${JSON.stringify((q.options || []).sort())}`)
+        );
         const questionsToInsert = [];
 
         for (const question of questions) {
             const { id, ...questionToSave } = question; // Remove temporary ID
+            const uniqueIdentifier = `${questionToSave.text}::${JSON.stringify((questionToSave.options || []).sort())}`;
 
-            if (!existingTextSet.has(questionToSave.text)) {
+            if (!existingQuestionSet.has(uniqueIdentifier)) {
                 questionsToInsert.push(questionToSave);
-                existingTextSet.add(questionToSave.text); // Avoid duplicates within the same batch
+                // Add to the set to avoid adding duplicates from the same batch
+                existingQuestionSet.add(uniqueIdentifier);
             } else {
                 skippedCount++;
             }

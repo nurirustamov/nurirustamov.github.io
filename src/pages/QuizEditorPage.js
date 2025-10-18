@@ -4,9 +4,12 @@ import Card from '../components/ui/Card';
 import ComboBox from '../components/ui/ComboBox';
 import Modal from '../components/ui/Modal';
 import QuestionEditor from '../components/QuestionEditor';
-import { ArrowLeftIcon, PlusIcon, CheckIcon, UploadIcon, LibraryIcon, DocumentTextIcon, PencilAltIcon, ClockIcon, SaveIcon, SparklesIcon, XIcon } from '../assets/icons';
+import { ArrowLeftIcon, PlusIcon, CheckIcon, UploadIcon, LibraryIcon, DocumentTextIcon, PencilAltIcon, ClockIcon, SaveIcon, SparklesIcon, XIcon, DownloadIcon } from '../assets/icons';
 import { TrashIcon } from '../assets/icons';
 import mammoth from 'mammoth';
+import { Packer } from 'docx';
+import { saveAs } from 'file-saver';
+import { generateWordDocument } from '../utils/wordExporter'; // Создадим этот файл
 
 const AIQuestionGeneratorModal = ({ isOpen, onClose, onGenerate, showToast }) => {
     const [text, setText] = useState('');
@@ -294,6 +297,19 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
             return;
         }
         onSave(quiz);
+    };
+
+    const handleExportToWord = () => {
+        showToast('Word sənədi hazırlanır...');
+        try {
+            const doc = generateWordDocument(quiz);
+            Packer.toBlob(doc).then(blob => {
+                saveAs(blob, `${quiz.title.replace(/ /g, '_')}.docx`);
+            });
+        } catch (error) {
+            showToast(`Sənəd yaradılarkən xəta baş verdi: ${error.message}`, 'error');
+            console.error(error);
+        }
     };
 
     const handleGenerateAIQuestions = async (text, files, criteria, tags, totalPoints, numOptions, addImage, difficulty, generateDistractors) => {
@@ -620,6 +636,7 @@ const QuizEditorPage = ({ quiz, onSave, onBack, showToast, existingCategories = 
                             <div className="flex flex-wrap gap-2">
                                 <Button onClick={generate9thGradeTemplate} variant="secondary">9-cu Sinif Şablonu</Button>
                                 <Button onClick={generate11thGradeTemplate} variant="secondary">11-ci Sinif Şablonu</Button>
+                            <Button onClick={handleExportToWord} variant="secondary"><DownloadIcon /> Word</Button>
                                 <Button onClick={onAddFromBankRequest} variant="secondary"><LibraryIcon />Bankdan</Button>
                                 <Button onClick={onImportRequest} variant="secondary"><UploadIcon />CSV-dən</Button>
                                 <Button onClick={() => onSaveAllQuestionsToBank(quiz.questions)} variant="secondary"><SaveIcon />Hamısını Banka Göndər</Button>

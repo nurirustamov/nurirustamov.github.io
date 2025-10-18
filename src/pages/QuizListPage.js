@@ -56,7 +56,7 @@ const QuizCard = ({ quiz, onStartQuiz, onCloneQuiz, onEditQuiz, onArchiveRequest
     return (
         <div className="relative group transition-transform duration-200 hover:-translate-y-1">
             <Card className={`flex flex-col group-hover:shadow-orange-200 transition-shadow duration-200 ${quiz.isArchived || !isEffectivelyPublished ? 'bg-gray-100' : ''}`}>
-                <div className="flex-grow flex flex-col">
+                <div className="flex-grow flex flex-col min-h-[200px]">
                     <div className="flex justify-between items-start mb-2">
                         <h2 className="text-xl font-bold text-gray-800 flex-1 pr-2">{quiz.title}</h2>
                         <button onClick={(e) => { e.stopPropagation(); toggleBookmark(quiz.id, 'quiz'); }} className="p-1 rounded-full hover:bg-orange-100 text-orange-500 flex-shrink-0" title={isSaved ? "Əlfəcini sil" : "Əlfəcinlərə əlavə et"}>
