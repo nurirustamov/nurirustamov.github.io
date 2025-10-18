@@ -13,6 +13,18 @@ export const generateWordDocument = (quiz) => {
         });
     };
 
+    // Новая функция для форматирования вариантов с квадратиком для выбора
+    const formatOptionWithCheckbox = (option) => {
+        return new Paragraph({
+            children: [
+                // Используем Unicode-символ квадратика
+                new TextRun({ text: `\t☐ ` }),
+                new TextRun(option.toString()),
+            ],
+            indent: { left: 400 },
+        });
+    };
+
     const children = [
         new Paragraph({
             children: [
@@ -69,9 +81,13 @@ export const generateWordDocument = (quiz) => {
 
         switch (q.type) {
             case 'single':
-            case 'multiple':
                 q.options.forEach((opt, optIndex) => {
                     children.push(formatOptionWithLetter(opt, optIndex));
+                });
+                break;
+            case 'multiple':
+                q.options.forEach((opt) => {
+                    children.push(formatOptionWithCheckbox(opt));
                 });
                 break;
             case 'trueFalse':
